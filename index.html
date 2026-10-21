@@ -219,6 +219,7 @@ const saved=readSave();
 const state={
  balls:[],angle:0,power:.62,turn:0,scores:[0,0],groups:[null,null],mode:'cpu',
  aiming:true,drag:null,animating:false,gameOver:false,shotPocketed:[],shotFoul:false,firstHit:null,
+ breakShot:true,ballInHand:false,shotRailHit:false,shotRailBalls:[],
  coins:saved.coins??120,wins:saved.wins??0,played:saved.played??0,potted:saved.potted??0,
  owned:new Set(saved.owned||['wood','cobalt','carbon']),cueId:saved.cueId||'wood',skin:saved.skin==='green'?'red':(saved.skin||'red'),
  lastTime:0,stillFrames:0,toastTimer:null,shotCount:0,roundAwarded:false
@@ -263,6 +264,7 @@ function resetMatch(keepMatchCount){
  state.balls=[];resetBalls();state.angle=0;state.power=Number($('power').value)/100;
  state.turn=0;state.scores=[0,0];state.groups=[null,null];state.animating=false;state.gameOver=false;state.winner=null;state.winnerText='';state.net.activeShooter=0;
  state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount=0;state.roundAwarded=false;
+ state.breakShot=true;state.ballInHand=false;state.shotRailHit=false;state.shotRailBalls=[];
  if(!keepMatchCount){state.played++;save()}
  updateHud();tell(state.mode==='practice'?'Práctica libre: juega sin presión y prueba tus tacos.':state.mode==='online'?'Mesa online lista. Espera a que se conecte el otro jugador.':'¡Mesa lista! Apunta a la bola blanca y tira cuando estés preparado.','good');
  canvas.focus({preventScroll:true});draw();broadcastGameState(true);
@@ -284,8 +286,8 @@ function updateHud(skipCues){
  $('potStat').textContent=state.potted;$('matchStat').textContent=state.played;
  $('powerValue').textContent=Math.round(state.power*100)+'%';
  $('cueCount').textContent=state.owned.size+' / '+cues.length;
- $('turnHint').textContent=state.gameOver?'Partida terminada: puedes iniciar otra mesa.':state.animating?'Las bolas están en movimiento…':state.turn===0?'Tu turno: apunta y prepara el tiro.':state.mode==='local'?'Turno del Jugador 2.':'Turno del rival.';
- $('shootBtn').disabled=state.animating||state.gameOver||!canControlTurn();
+ $('turnHint').textContent=state.gameOver?'Partida terminada: puedes iniciar otra mesa.':state.animating?'Las bolas están en movimiento…':state.ballInHand&&canControlTurn()?'Falta: haz clic en la mesa para colocar la blanca.':state.mode!=='practice'&&state.mode!=='race'&&state.breakShot?'Saque inicial: mesa abierta.':state.turn===0?'Tu turno: apunta y prepara el tiro.':state.mode==='local'?'Turno del Jugador 2.':'Turno del rival.';
+ $('shootBtn').disabled=state.animating||state.gameOver||state.ballInHand||!canControlTurn();
  if(!skipCues)renderCues();
 }
 function renderCues(){
@@ -363,43 +365,45 @@ function drawTable(){
 }
 function drawAim(){
  const cueBall=state.balls.find(b=>b.n===0&&b.onTable);
- if(!cueBall||state.gameOver)return;
- const cue=currentCue();
- const dx=Math.cos(state.angle),dy=Math.sin(state.angle);
- // Direction guide, including a longer guide when precision is improved.
- const guideLen=290+Math.max(0,cue.aim-1)*300;
- ctx.save();
- ctx.lineWidth=2;ctx.setLineDash([7,7]);ctx.strokeStyle='rgba(255,255,245,'+Math.min(.76,.42+(cue.aim-1)*1.8)+')';
- ctx.beginPath();ctx.moveTo(cueBall.x+dx*(R+2),cueBall.y+dy*(R+2));ctx.lineTo(cueBall.x+dx*guideLen,cueBall.y+dy*guideLen);ctx.stroke();ctx.setLineDash([]);
- // Draw a small contact indicator for the nearest ball along the aim line.
- let nearest=null,nearestT=guideLen;
+ if(!cueBall||state.gameOver||state.ballInHand)return;
+ const cue=currentCue(),dx=Math.cos(state.angle),dy=Math.sin(state.angle);
+ // Extend all the way to the cushion; target detection is independent of a fixed guide length.
+ const left=bounds.left+R,right=bounds.right-R,top=bounds.top+R,bottom=bounds.bottom-R;
+ const tx=dx>1e-6?(right-cueBall.x)/dx:dx< -1e-6?(left-cueBall.x)/dx:Infinity;
+ const ty=dy>1e-6?(bottom-cueBall.y)/dy:dy< -1e-6?(top-cueBall.y)/dy:Infinity;
+ const rayLength=Math.max(0,Math.min(tx>0?tx:Infinity,ty>0?ty:Infinity));
+ const alpha=Math.min(.82,.48+(cue.aim-1)*1.6);
+ let nearest=null,contactT=rayLength,ghostX=0,ghostY=0;
  state.balls.forEach(b=>{
   if(!b.onTable||b.n===0)return;
-  const vx=b.x-cueBall.x,vy=b.y-cueBall.y;
-  const t=vx*dx+vy*dy;if(t<R*2||t>nearestT)return;
-  const perp=Math.abs(vx*dy-vy*dx);
-  if(perp<R*2.4){nearest=b;nearestT=t}
+  const rx=b.x-cueBall.x,ry=b.y-cueBall.y,along=rx*dx+ry*dy,side=rx*dy-ry*dx;
+  if(along<=0||Math.abs(side)>=R*2)return;
+  const travel=along-Math.sqrt(Math.max(0,(R*2)*(R*2)-side*side));
+  if(travel<=0||travel>=contactT)return;
+  nearest=b;contactT=travel;ghostX=cueBall.x+dx*travel;ghostY=cueBall.y+dy*travel;
  });
+ const endT=nearest?contactT:rayLength;
+ ctx.save();ctx.lineWidth=2.2;ctx.setLineDash([8,7]);ctx.strokeStyle='rgba(255,255,245,'+alpha+')';
+ ctx.beginPath();ctx.moveTo(cueBall.x+dx*(R+2),cueBall.y+dy*(R+2));ctx.lineTo(cueBall.x+dx*endT,cueBall.y+dy*endT);ctx.stroke();ctx.setLineDash([]);
  if(nearest){
-  const rx=nearest.x-cueBall.x,ry=nearest.y-cueBall.y;
-  const along=rx*dx+ry*dy,side=rx*dy-ry*dx;
-  const travel=Math.max(0,along-Math.sqrt(Math.max(0,(R*2)*(R*2)-side*side)));
-  const cx=cueBall.x+dx*travel,cy=cueBall.y+dy*travel;
-  ctx.save();ctx.strokeStyle='#ffe69a';ctx.fillStyle='rgba(255,230,154,.12)';ctx.setLineDash([4,4]);ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,R-1,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);ctx.restore();
-  const nx0=nearest.x-cx,ny0=nearest.y-cy,norm=Math.hypot(nx0,ny0)||1,nx=nx0/norm,ny=ny0/norm,endX=nearest.x+nx*165,endY=nearest.y+ny*165;
-  ctx.save();ctx.strokeStyle='#65f1ff';ctx.fillStyle='#65f1ff';ctx.lineWidth=2.8;ctx.setLineDash([7,5]);ctx.beginPath();ctx.moveTo(nearest.x+nx*(R+2),nearest.y+ny*(R+2));ctx.lineTo(endX,endY);ctx.stroke();ctx.setLineDash([]);
-  const a=Math.atan2(endY-nearest.y,endX-nearest.x),head=10;ctx.beginPath();ctx.moveTo(endX,endY);ctx.lineTo(endX-head*Math.cos(a-.48),endY-head*Math.sin(a-.48));ctx.lineTo(endX-head*Math.cos(a+.48),endY-head*Math.sin(a+.48));ctx.closePath();ctx.fill();ctx.restore();
+  ctx.save();ctx.strokeStyle='#ffe69a';ctx.fillStyle='rgba(255,230,154,.14)';ctx.setLineDash([4,4]);ctx.lineWidth=2;
+  ctx.beginPath();ctx.arc(ghostX,ghostY,R-1,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  const vx=nearest.x-ghostX,vy=nearest.y-ghostY,norm=Math.hypot(vx,vy)||1,nx=vx/norm,ny=vy/norm;
+  const endX=nearest.x+nx*165,endY=nearest.y+ny*165;
+  ctx.save();ctx.strokeStyle='#65f1ff';ctx.fillStyle='#65f1ff';ctx.lineWidth=2.8;ctx.setLineDash([7,5]);
+  ctx.beginPath();ctx.moveTo(nearest.x+nx*(R+2),nearest.y+ny*(R+2));ctx.lineTo(endX,endY);ctx.stroke();ctx.setLineDash([]);
+  const a=Math.atan2(endY-nearest.y,endX-nearest.x),head=10;
+  ctx.beginPath();ctx.moveTo(endX,endY);ctx.lineTo(endX-head*Math.cos(a-.48),endY-head*Math.sin(a-.48));ctx.lineTo(endX-head*Math.cos(a+.48),endY-head*Math.sin(a+.48));ctx.closePath();ctx.fill();ctx.restore();
   ctx.strokeStyle='#b4f9ff';ctx.lineWidth=2.4;ctx.beginPath();ctx.arc(nearest.x,nearest.y,R+3,0,Math.PI*2);ctx.stroke();
  }
- // Cue stick, shown behind the cue ball.
- const pull=8+((state.power-.15)/.85)*31;
- const back=R+17+pull;
- ctx.lineCap='round';ctx.lineWidth=7;ctx.strokeStyle=cue.dark;
+ const pull=8+((state.power-.15)/.85)*31,back=R+17+pull;
+ ctx.save();ctx.lineCap='round';ctx.lineWidth=7;ctx.strokeStyle=cue.dark;
  ctx.beginPath();ctx.moveTo(cueBall.x-dx*(back+118),cueBall.y-dy*(back+118));ctx.lineTo(cueBall.x-dx*(back+2),cueBall.y-dy*(back+2));ctx.stroke();
- const stickGrad=ctx.createLinearGradient(cueBall.x-dx*(back+115),cueBall.y-dy*(back+115),cueBall.x-dx*back,cueBall.y-dy*back);stickGrad.addColorStop(0,cue.color);stickGrad.addColorStop(.74,cue.dark);stickGrad.addColorStop(1,'#efe1bd');
- ctx.lineWidth=4;ctx.strokeStyle=stickGrad;ctx.beginPath();ctx.moveTo(cueBall.x-dx*(back+118),cueBall.y-dy*(back+118));ctx.lineTo(cueBall.x-dx*(back+2),cueBall.y-dy*(back+2));ctx.stroke();
- ctx.restore();
+ const stickGrad=ctx.createLinearGradient(cueBall.x-dx*(back+115),cueBall.y-dy*(back+115),cueBall.x-dx*back,cueBall.y-dy*back);
+ stickGrad.addColorStop(0,cue.color);stickGrad.addColorStop(.74,cue.dark);stickGrad.addColorStop(1,'#efe1bd');
+ ctx.lineWidth=4;ctx.strokeStyle=stickGrad;ctx.beginPath();ctx.moveTo(cueBall.x-dx*(back+118),cueBall.y-dy*(back+118));ctx.lineTo(cueBall.x-dx*(back+2),cueBall.y-dy*(back+2));ctx.stroke();ctx.restore();
 }
+
 function drawBall(b){
  if(!b.onTable)return;
  const x=b.x,y=b.y,rot=Number(b.rot)||0;
@@ -434,7 +438,8 @@ function lighten(hex){
 }
 function draw(){
  drawTable();
- if(state.aiming&&!state.animating&&canControlTurn())drawAim();
+ if(state.ballInHand&&canControlTurn()&&!state.animating){ctx.save();ctx.fillStyle='#061712c9';roundRect(ctx,315,228,370,104,14);ctx.fill();ctx.strokeStyle='#9ff4ce';ctx.lineWidth=2;roundRect(ctx,315,228,370,104,14);ctx.stroke();ctx.fillStyle='#ecfff5';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold 18px system-ui';ctx.fillText('COLOCA LA BOLA BLANCA',500,266);ctx.fillStyle='#badbcb';ctx.font='13px system-ui';ctx.fillText('Haz clic en un lugar libre del paño',500,297);ctx.restore()}
+ if(state.aiming&&!state.animating&&canControlTurn()&&!state.ballInHand)drawAim();
  state.balls.forEach(drawBall);
  if(state.gameOver){
   ctx.save();ctx.fillStyle='#04100ed9';ctx.fillRect(250,212,500,136);
@@ -447,7 +452,15 @@ function pointerPos(e){const r=canvas.getBoundingClientRect();return {x:(e.clien
 canvas.addEventListener('pointerdown',e=>{
  if(!canControlTurn()||state.animating||state.gameOver)return;
  e.preventDefault();canvas.setPointerCapture(e.pointerId);
- const p=pointerPos(e),cue=state.balls.find(b=>b.n===0&&b.onTable);if(!cue)return;
+ const p=pointerPos(e),cue=state.balls.find(b=>b.n===0);if(!cue)return;
+ if(state.ballInHand){
+  if(p.x<bounds.left+R||p.x>bounds.right-R||p.y<bounds.top+R||p.y>bounds.bottom-R){tell('Coloca la blanca dentro del paño, lejos de las bandas.','warn');return}
+  const overlap=state.balls.some(b=>b.n!==0&&b.onTable&&Math.hypot(b.x-p.x,b.y-p.y)<R*2+2);
+  if(overlap){tell('Ese lugar está ocupado por otra bola.','warn');return}
+  cue.x=p.x;cue.y=p.y;cue.vx=0;cue.vy=0;cue.onTable=true;state.ballInHand=false;state.aiming=true;
+  tell('Blanca colocada. Apunta y realiza tu tiro.','good');updateHud();draw();broadcastGameState(true);return;
+ }
+ if(!cue.onTable)return;
  state.drag={mode:'aim'};state.angle=Math.atan2(p.y-cue.y,p.x-cue.x);
  draw();
 });
@@ -494,10 +507,10 @@ window.addEventListener('keydown',e=>{
  if(e.key.toLowerCase()==='r'){resetMatch(false)}
 });
 function shoot(){
- if(!canControlTurn()||state.animating||state.gameOver)return;
+ if(!canControlTurn()||state.animating||state.gameOver||state.ballInHand)return;
  const cue=state.balls.find(b=>b.n===0&&b.onTable);
  if(!cue){tell('No se ve la bola blanca. Reinicia la mesa.','warn');return}
- state.animating=true;state.aiming=false;state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount++;
+ state.animating=true;state.aiming=false;state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount++;state.shotRailHit=false;state.shotRailBalls=[];
  const c=currentCue();const velocity=state.power*830*c.power;
  cue.vx=Math.cos(state.angle)*velocity;cue.vy=Math.sin(state.angle)*velocity;
  state.net.activeShooter=state.mode==='online'?state.net.role:state.turn;
@@ -532,10 +545,10 @@ function updatePhysics(dt){
    }
   }
   if(pocketed)continue;
-  if(b.x<bounds.left+R){b.x=bounds.left+R;b.vx=Math.abs(b.vx)*.88}
-  if(b.x>bounds.right-R){b.x=bounds.right-R;b.vx=-Math.abs(b.vx)*.88}
-  if(b.y<bounds.top+R){b.y=bounds.top+R;b.vy=Math.abs(b.vy)*.88}
-  if(b.y>bounds.bottom-R){b.y=bounds.bottom-R;b.vy=-Math.abs(b.vy)*.88}
+  if(b.x<bounds.left+R){b.x=bounds.left+R;b.vx=Math.abs(b.vx)*.88;if(state.firstHit!==null){state.shotRailHit=true;if(!state.shotRailBalls.includes(b.n))state.shotRailBalls.push(b.n)}}
+  if(b.x>bounds.right-R){b.x=bounds.right-R;b.vx=-Math.abs(b.vx)*.88;if(state.firstHit!==null){state.shotRailHit=true;if(!state.shotRailBalls.includes(b.n))state.shotRailBalls.push(b.n)}}
+  if(b.y<bounds.top+R){b.y=bounds.top+R;b.vy=Math.abs(b.vy)*.88;if(state.firstHit!==null){state.shotRailHit=true;if(!state.shotRailBalls.includes(b.n))state.shotRailBalls.push(b.n)}}
+  if(b.y>bounds.bottom-R){b.y=bounds.bottom-R;b.vy=-Math.abs(b.vy)*.88;if(state.firstHit!==null){state.shotRailHit=true;if(!state.shotRailBalls.includes(b.n))state.shotRailBalls.push(b.n)}}
  }
  // Equal-mass ball collisions with overlap correction.
  for(let i=0;i<state.balls.length;i++){
@@ -556,45 +569,94 @@ function updatePhysics(dt){
   }
  }
 }
+function spotEightBall(){
+ let ball=state.balls.find(b=>b.n===8);
+ if(!ball){ball={n:8,x:690,y:280,vx:0,vy:0,rot:0,onTable:true};state.balls.push(ball)}
+ const spots=[{x:734,y:280},{x:500,y:280},{x:500,y:256},{x:500,y:304},{x:476,y:280},{x:524,y:280},{x:500,y:232},{x:500,y:328}];
+ const safe=spots.find(p=>state.balls.every(b=>b.n===8||!b.onTable||Math.hypot(b.x-p.x,b.y-p.y)>=R*2+2))||spots[0];
+ ball.x=safe.x;ball.y=safe.y;ball.vx=0;ball.vy=0;ball.onTable=true;
+ state.shotPocketed=state.shotPocketed.filter(n=>n!==8);
+}
 function finishShot(){
  state.animating=false;state.aiming=true;
- const pots=state.shotPocketed;
+ let pots=state.shotPocketed.slice();
  const scoringPlayer=state.mode==='online'?state.net.activeShooter:state.turn;
+ const eightBallMode=['cpu','local','online'].includes(state.mode);
+ const wasBreak=eightBallMode&&state.breakShot;
+ const eightOnBreak=wasBreak&&pots.includes(8);
+ if(eightOnBreak){spotEightBall();pots=pots.filter(n=>n!==8)}
  if(pots.length)state.scores[scoringPlayer]+=pots.length;
  if(state.mode==='practice'){
-  if(state.shotFoul){restoreCueBall();tell('La blanca cayó en tronera. Se colocó de nuevo para seguir practicando.','warn')}
+  if(state.shotFoul){restoreCueBall();tell('La blanca cayó en una tronera. Se colocó de nuevo para seguir practicando.','warn')}
   else tell(pots.length?'¡Buen tiro! Embocaste '+pots.length+' bola(s).':'Tiro terminado. Prueba con otro ángulo.','good');
-  state.turn=0;updateHud();save();draw();broadcastGameState(true);return;
+  state.turn=0;state.ballInHand=false;updateHud();save();draw();broadcastGameState(true);return;
  }
  if(state.mode==='race'){
-  if(state.shotFoul)restoreCueBall();
-  if(state.scores[scoringPlayer]>=5){endMatch(scoringPlayer,'¡Carrera ganada!');return}
-  if(pots.length&&!state.shotFoul){tell('¡Sigue tu turno! '+pots.length+' bola(s) embocada(s).','good')}
-  else{state.turn=1-state.turn;tell(state.shotFoul?'Falta: la blanca cayó. Cambia el turno.':'Sin bolas embocadas: cambia el turno.',state.shotFoul?'warn':'')}
+  if(state.shotFoul){restoreCueBall();state.turn=1-scoringPlayer}
+  else if(state.scores[scoringPlayer]>=5){endMatch(scoringPlayer,'¡Carrera ganada!');return}
+  else if(pots.length){state.turn=scoringPlayer;tell('¡Sigue tu turno! '+pots.length+' bola(s) embocada(s).','good')}
+  else{state.turn=1-scoringPlayer;tell('Sin bolas embocadas: cambia el turno.','')}
+  state.shotFoul=false;updateHud();save();draw();broadcastGameState(true);
+  if(isCPU()&&state.turn===1&&!state.gameOver)setTimeout(cpuTurn,700);
+  return;
+ }
+ if(wasBreak){
+  state.breakShot=false;
+  const objectRailCount=state.shotRailBalls.filter(n=>n!==0).length;
+  const legalBreak=!state.shotFoul&&state.firstHit!==null&&(pots.length>0||eightOnBreak||objectRailCount>=4);
+  if(!legalBreak){
+   restoreCueBall();state.ballInHand=true;state.turn=1-scoringPlayer;state.shotFoul=false;
+   tell('Saque ilegal: el rival recibe bola en mano.','warn');
+  }else if(state.shotFoul){
+   restoreCueBall();state.ballInHand=true;state.turn=1-scoringPlayer;state.shotFoul=false;
+   tell('Falta en el saque: el rival recibe bola en mano.','warn');
+  }else if(pots.length>0||eightOnBreak){
+   state.turn=scoringPlayer;
+   tell(eightOnBreak?'La bola 8 del saque se recolocó. La mesa sigue abierta.':'Saque legal. La mesa sigue abierta; todavía no hay lisas ni rayadas asignadas.','good');
+  }else{
+   state.turn=1-scoringPlayer;
+   tell('Saque legal sin bolas embocadas. La mesa queda abierta para el rival.','');
+  }
+  updateHud();save();draw();broadcastGameState(true);
+  if(isCPU()&&state.turn===1&&!state.gameOver)setTimeout(cpuTurn,700);
+  return;
+ }
+ const tableOpen=!state.groups[0]&&!state.groups[1];
+ let foul=state.shotFoul||state.firstHit===null;
+ if(!foul){
+  if(tableOpen&&state.firstHit===8)foul=true;
+  else if(!tableOpen){
+   if(state.firstHit===8){if(remainingFor(scoringPlayer)>0)foul=true}
+   else if(groupForBall({n:state.firstHit})!==state.groups[scoringPlayer])foul=true;
+  }
+ }
+ if(!foul&&pots.length===0&&!state.shotRailHit)foul=true;
+ if(pots.includes(8)){
+  const clearedOwnGroup=!tableOpen&&remainingFor(scoringPlayer)===0;
+  if(!foul&&clearedOwnGroup){endMatch(scoringPlayer,'¡Ganaste con la bola 8!');return}
+  endMatch(1-scoringPlayer,foul?'Falta al embocar la bola 8: gana el rival.':'La bola 8 entró antes de tiempo: gana el rival.');
+  return;
+ }
+ if(!foul&&tableOpen){
+  const first=pots.find(n=>n!==8);
+  if(first){
+   const group=groupForBall({n:first});
+   if(group){state.groups[scoringPlayer]=group;state.groups[1-scoringPlayer]=group==='solids'?'stripes':'solids'}
+  }
+ }
+ if(foul){
+  restoreCueBall();state.ballInHand=true;state.turn=1-scoringPlayer;state.shotFoul=false;
+  tell('Falta: el rival puede colocar la bola blanca en cualquier lugar del paño.','warn');
  }else{
-  const eight=pots.includes(8);
-  const playerGroup=state.groups[scoringPlayer];
-  const foulByHit=state.firstHit!==null&&playerGroup&&groupForBall({n:state.firstHit})!==playerGroup&&state.firstHit!==8;
-  const foul=state.shotFoul||foulByHit;
-  if(eight){
-   const remaining=remainingFor(scoringPlayer);
-   if(playerGroup&&remaining===0&&!foul){endMatch(scoringPlayer,'¡Victoria brillante!');return}
-   else{endMatch(1-scoringPlayer,'¡La bola 8 decidió la partida!');return}
-  }
-  if(!state.groups[0]&&!state.groups[1]&&!foul){
-   const first=pots.find(n=>n!==8);
-   if(first){const g=groupForBall({n:first});if(g){state.groups[scoringPlayer]=g;state.groups[1-scoringPlayer]=g==='solids'?'stripes':'solids'}}
-  }
-  if(foul){
-   restoreCueBall();state.turn=1-scoringPlayer;state.shotFoul=false;
-   tell(pots.length?'Falta. Las bolas embocadas se sumaron al marcador; el rival recibe el turno.':'Falta: el rival toma el turno y la blanca vuelve a la mesa.','warn');
-  }else if(pots.length){
-   tell('¡Embocaste '+pots.length+' bola(s)! +'+pots.length+' al marcador. Conservas el turno.','good');
-  }else{state.turn=1-scoringPlayer;tell('No entró ninguna bola. Turno del rival.','')}
+  state.ballInHand=false;state.shotFoul=false;
+  const ownBallPocketed=pots.some(n=>n!==8&&groupForBall({n})===state.groups[scoringPlayer]);
+  if(ownBallPocketed){state.turn=scoringPlayer;tell('¡Buena bola! Conservas el turno.','good')}
+  else{state.turn=1-scoringPlayer;tell(pots.length?'Bolas embocadas. Como no entró una de tu grupo, cambia el turno.':'Tiro legal sin embocar: cambia el turno.','')}
  }
  updateHud();save();draw();broadcastGameState(true);
- if(isCPU()&&state.turn===1&&!state.gameOver){setTimeout(cpuTurn,700)}
+ if(isCPU()&&state.turn===1&&!state.gameOver)setTimeout(cpuTurn,700);
 }
+
 function restoreCueBall(){
  let cue=state.balls.find(b=>b.n===0);
  if(!cue){cue={n:0,x:263,y:280,vx:0,vy:0,onTable:true};state.balls.unshift(cue)}
@@ -611,7 +673,8 @@ function endMatch(winner,message){
 }
 function cpuTurn(){
  if(state.gameOver||state.mode==='local'||state.mode==='practice'||state.turn!==1||state.animating)return;
- const cueBall=state.balls.find(b=>b.n===0&&b.onTable);
+ const cueBall=state.balls.find(b=>b.n===0);
+ if(state.ballInHand&&cueBall){cueBall.x=263;cueBall.y=280;cueBall.vx=0;cueBall.vy=0;cueBall.onTable=true;state.ballInHand=false}
  const targets=state.balls.filter(b=>b.onTable&&b.n!==0);
  if(!cueBall||!targets.length){endMatch(0,'¡Mesa despejada!');return}
  let best=null;
@@ -629,7 +692,7 @@ function cpuTurn(){
  state.angle=best?best.angle:Math.atan2(targets[0].y-cueBall.y,targets[0].x-cueBall.x);
  state.power=.51+Math.random()*.17;$('power').value=Math.round(state.power*100);$('powerValue').textContent=Math.round(state.power*100)+'%';
  // The CPU uses its own basic cue so player upgrades are not applied to the rival.
- state.animating=true;state.aiming=false;state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount++;state.net.activeShooter=state.turn;
+ state.animating=true;state.aiming=false;state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount++;state.shotRailHit=false;state.shotRailBalls=[];state.net.activeShooter=state.turn;
  cueBall.vx=Math.cos(state.angle)*state.power*690;cueBall.vy=Math.sin(state.angle)*state.power*690;
  tell('El rival está jugando…','');updateHud();draw();
 }
@@ -648,7 +711,7 @@ function sendRoomEvent(event,payload){
  try{const result=state.net.channel.send({type:'broadcast',event:event,payload:payload});if(result&&typeof result.catch==='function')result.catch(()=>{})}catch(e){}
 }
 function gameSnapshot(){
- return {room:state.net.room,authorRole:state.net.role,balls:state.balls.map(b=>({n:b.n,x:b.x,y:b.y,vx:b.vx,vy:b.vy,rot:b.rot,onTable:b.onTable})),angle:state.angle,power:state.power,turn:state.turn,scores:state.scores.slice(),groups:state.groups.slice(),animating:state.animating,gameOver:state.gameOver,winner:state.winner,winnerText:state.winnerText||'',skin:state.skin};
+ return {room:state.net.room,authorRole:state.net.role,balls:state.balls.map(b=>({n:b.n,x:b.x,y:b.y,vx:b.vx,vy:b.vy,rot:b.rot,onTable:b.onTable})),angle:state.angle,power:state.power,turn:state.turn,scores:state.scores.slice(),groups:state.groups.slice(),animating:state.animating,gameOver:state.gameOver,winner:state.winner,winnerText:state.winnerText||'',skin:state.skin,breakShot:state.breakShot,ballInHand:state.ballInHand,shotFoul:state.shotFoul,firstHit:state.firstHit,shotPocketed:state.shotPocketed.slice(),shotRailHit:state.shotRailHit,shotRailBalls:state.shotRailBalls.slice()};
 }
 function persistRoomSnapshot(snapshot,force){
  if(!state.net.room||state.net.role<0)return;
@@ -698,6 +761,7 @@ function applyRemoteGameState(p,restoreOwnSnapshot){
  state.balls=p.balls.map(b=>({n:Number(b.n),x:Number(b.x),y:Number(b.y),vx:Number(b.vx)||0,vy:Number(b.vy)||0,rot:Number(b.rot)||0,onTable:!!b.onTable}));
  state.angle=Number(p.angle)||0;state.power=Math.max(.15,Math.min(1,Number(p.power)||.62));
  state.turn=Number(p.turn)||0;state.scores=Array.isArray(p.scores)?p.scores.slice(0,2):[0,0];state.groups=Array.isArray(p.groups)?p.groups.slice(0,2):[null,null];
+ state.breakShot=p.breakShot!==false;state.ballInHand=!!p.ballInHand;state.shotFoul=!!p.shotFoul;state.firstHit=p.firstHit===null||p.firstHit===undefined?null:Number(p.firstHit);state.shotPocketed=Array.isArray(p.shotPocketed)?p.shotPocketed.slice():[];state.shotRailHit=!!p.shotRailHit;state.shotRailBalls=Array.isArray(p.shotRailBalls)?p.shotRailBalls.slice():[];
  state.animating=!!p.animating;state.aiming=!state.animating;state.gameOver=!!p.gameOver;state.winner=p.winner===null||p.winner===undefined?null:Number(p.winner);state.winnerText=p.winnerText||'';
  if(['green','blue','purple','red'].includes(p.skin)){state.skin=p.skin;document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b.dataset.skin===state.skin))}
  $('power').value=Math.round(state.power*100);$('powerValue').textContent=Math.round(state.power*100)+'%';
