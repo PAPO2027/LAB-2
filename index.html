@@ -612,15 +612,13 @@ function finishShot(){
    state.groups[scoringPlayer]=selectedGroup;
    state.groups[1-scoringPlayer]=selectedGroup==='solids'?'stripes':'solids';
   }
-  const opponentGroup=state.groups[1-scoringPlayer];
-  const opponentBallPocketed=!!opponentGroup&&pots.some(n=>groupForBall({n})===opponentGroup);
-  const breakFoul=state.shotFoul||opponentBallPocketed;
+  // En el saque se sanciona la blanca embocada; las bolas embocadas no generan falta por grupo.
+  const breakFoul=state.shotFoul;
   const objectRailCount=state.shotRailBalls.filter(n=>n!==0).length;
   const legalBreak=!breakFoul&&state.firstHit!==null&&(pots.length>0||eightOnBreak||objectRailCount>=4);
   if(!legalBreak){
    restoreCueBall();state.ballInHand=true;state.turn=1-scoringPlayer;state.shotFoul=false;
-   if(opponentBallPocketed)tell('Falta en el saque: embocaste una bola del grupo del rival. El rival recibe bola en mano.','warn');
-   else if(breakFoul)tell('Falta en el saque: el rival recibe bola en mano.','warn');
+   if(breakFoul)tell('Falta en el saque: la blanca cayó en una buchaca. El rival recibe bola en mano.','warn');
    else tell('Saque ilegal: el rival recibe bola en mano.','warn');
   }else if(pots.length>0||eightOnBreak){
    state.turn=scoringPlayer;
@@ -647,17 +645,7 @@ function finishShot(){
   }
  }
  if(!foul&&pots.length===0&&!state.shotRailHit)foul=true;
- if(!foul&&tableOpen){
-  const first=pots.find(n=>groupForBall({n}));
-  if(first){
-   const group=groupForBall({n:first});
-   state.groups[scoringPlayer]=group;
-   state.groups[1-scoringPlayer]=group==='solids'?'stripes':'solids';
-  }
- }
- const opponentGroup=state.groups[1-scoringPlayer];
- const opponentBallPocketed=!!opponentGroup&&pots.some(n=>groupForBall({n})===opponentGroup);
- if(!foul&&opponentBallPocketed)foul=true;
+ // La falta depende del primer contacto, no de que luego entre una bola del grupo rival.
  if(pots.includes(8)){
   const clearedOwnGroup=!tableOpen&&remainingFor(scoringPlayer)===0;
   if(!foul&&clearedOwnGroup){endMatch(scoringPlayer,'¡Ganaste con la bola 8!');return}
@@ -672,8 +660,16 @@ function finishShot(){
   }
  }
  if(foul){
+  const scratch=state.shotFoul;
+  const noObjectHit=state.firstHit===null;
+  const wrongFirstBall=!tableOpen&&state.firstHit!==null&&state.firstHit!==8&&groupForBall({n:state.firstHit})!==state.groups[scoringPlayer];
+  const hitEightTooEarly=!tableOpen&&state.firstHit===8&&remainingFor(scoringPlayer)>0;
   restoreCueBall();state.ballInHand=true;state.turn=1-scoringPlayer;state.shotFoul=false;
-  tell('Falta: el rival puede colocar la bola blanca en cualquier lugar del paño.','warn');
+  if(scratch)tell('Falta: la blanca cayó en una buchaca. El rival puede colocarla en cualquier lugar.','warn');
+  else if(noObjectHit)tell('Falta: no tocaste ninguna bola. El rival puede colocar la blanca en cualquier lugar.','warn');
+  else if(wrongFirstBall)tell('Falta: tocaste primero una bola del grupo rival. El rival puede colocar la blanca en cualquier lugar.','warn');
+  else if(hitEightTooEarly)tell('Falta: tocaste primero la bola 8 antes de terminar tu grupo. El rival puede colocar la blanca en cualquier lugar.','warn');
+  else tell('Falta: el rival puede colocar la bola blanca en cualquier lugar del paño.','warn');
  }else{
   state.ballInHand=false;state.shotFoul=false;
   const ownBallPocketed=pots.some(n=>n!==8&&groupForBall({n})===state.groups[scoringPlayer]);
