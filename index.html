@@ -496,7 +496,7 @@ function updatePhysics(dt){
    const nx=dx/dist,ny=dy/dist,overlap=(min-dist)/2;
    a.x-=nx*overlap;b.x+=nx*overlap;a.y-=ny*overlap;b.y+=ny*overlap;
    const rel=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
-   if(rel>0)continue;
+   if(rel<0)continue;
    const impulse=-rel*0.96;
    a.vx+=impulse*nx;a.vy+=impulse*ny;b.vx-=impulse*nx;b.vy-=impulse*ny;
    if((a.n===0||b.n===0)&&!state.firstHit)state.firstHit=a.n===0?b.n:a.n;
