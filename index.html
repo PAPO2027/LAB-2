@@ -605,17 +605,30 @@ function finishShot(){
  }
  if(wasBreak){
   state.breakShot=false;
+  // En esta versión, la primera bola lisa/rayada embocada incluso en el saque fija los grupos.
+  const firstBreakBall=pots.find(n=>groupForBall({n}));
+  if(!state.shotFoul&&firstBreakBall&&!state.groups[0]&&!state.groups[1]){
+   const selectedGroup=groupForBall({n:firstBreakBall});
+   state.groups[scoringPlayer]=selectedGroup;
+   state.groups[1-scoringPlayer]=selectedGroup==='solids'?'stripes':'solids';
+  }
+  const opponentGroup=state.groups[1-scoringPlayer];
+  const opponentBallPocketed=!!opponentGroup&&pots.some(n=>groupForBall({n})===opponentGroup);
+  const breakFoul=state.shotFoul||opponentBallPocketed;
   const objectRailCount=state.shotRailBalls.filter(n=>n!==0).length;
-  const legalBreak=!state.shotFoul&&state.firstHit!==null&&(pots.length>0||eightOnBreak||objectRailCount>=4);
+  const legalBreak=!breakFoul&&state.firstHit!==null&&(pots.length>0||eightOnBreak||objectRailCount>=4);
   if(!legalBreak){
    restoreCueBall();state.ballInHand=true;state.turn=1-scoringPlayer;state.shotFoul=false;
-   tell('Saque ilegal: el rival recibe bola en mano.','warn');
-  }else if(state.shotFoul){
-   restoreCueBall();state.ballInHand=true;state.turn=1-scoringPlayer;state.shotFoul=false;
-   tell('Falta en el saque: el rival recibe bola en mano.','warn');
+   if(opponentBallPocketed)tell('Falta en el saque: embocaste una bola del grupo del rival. El rival recibe bola en mano.','warn');
+   else if(breakFoul)tell('Falta en el saque: el rival recibe bola en mano.','warn');
+   else tell('Saque ilegal: el rival recibe bola en mano.','warn');
   }else if(pots.length>0||eightOnBreak){
    state.turn=scoringPlayer;
-   tell(eightOnBreak?'La bola 8 del saque se recolocó. La mesa sigue abierta.':'Saque legal. La mesa sigue abierta; todavía no hay lisas ni rayadas asignadas.','good');
+   if(state.groups[scoringPlayer]){
+    tell(eightOnBreak?'La bola 8 del saque se recolocó. Tu grupo es '+groupName(state.groups[scoringPlayer])+'.':'Tu grupo es '+groupName(state.groups[scoringPlayer])+'. Conservas el turno.','good');
+   }else{
+    tell(eightOnBreak?'La bola 8 del saque se recolocó. La mesa sigue abierta.':'Saque legal. La mesa sigue abierta hasta que entre una lisa o rayada.','good');
+   }
   }else{
    state.turn=1-scoringPlayer;
    tell('Saque legal sin bolas embocadas. La mesa queda abierta para el rival.','');
@@ -634,6 +647,17 @@ function finishShot(){
   }
  }
  if(!foul&&pots.length===0&&!state.shotRailHit)foul=true;
+ if(!foul&&tableOpen){
+  const first=pots.find(n=>groupForBall({n}));
+  if(first){
+   const group=groupForBall({n:first});
+   state.groups[scoringPlayer]=group;
+   state.groups[1-scoringPlayer]=group==='solids'?'stripes':'solids';
+  }
+ }
+ const opponentGroup=state.groups[1-scoringPlayer];
+ const opponentBallPocketed=!!opponentGroup&&pots.some(n=>groupForBall({n})===opponentGroup);
+ if(!foul&&opponentBallPocketed)foul=true;
  if(pots.includes(8)){
   const clearedOwnGroup=!tableOpen&&remainingFor(scoringPlayer)===0;
   if(!foul&&clearedOwnGroup){endMatch(scoringPlayer,'¡Ganaste con la bola 8!');return}
