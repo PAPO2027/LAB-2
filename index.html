@@ -226,7 +226,7 @@ const state={
 const SUPABASE_URL='https://ygitfqbuyxbnpwoamlsy.supabase.co';
 const SUPABASE_KEY='sb_publishable_WgNHhhK7dS5yP32ZOn3q1g_fZ5mIyVu';
 function getPlayerId(){try{let id=sessionStorage.getItem('mesa8-player-id');if(!id){id='p-'+Math.random().toString(36).slice(2,9)+'-'+Date.now().toString(36);sessionStorage.setItem('mesa8-player-id',id)}return id}catch(e){return 'p-'+Math.random().toString(36).slice(2,12)}}
-state.net={client:null,channel:null,connected:false,room:'',role:-1,players:[],playerId:getPlayerId(),activeShooter:0,lastSent:0,roomInitialized:false,requestedState:false};
+state.net={client:null,channel:null,connected:false,room:'',role:-1,players:[],playerId:getPlayerId(),activeShooter:0,lastSent:0,lastPersisted:0,persistChain:Promise.resolve(),persistError:false,roomInitialized:false,requestedState:false};
 let supabaseClient=null;
 const $=id=>document.getElementById(id);
 function readSave(){try{return JSON.parse(localStorage.getItem('mesa8-save')||'{}')}catch(e){return {}}}
@@ -631,13 +631,48 @@ function sendRoomEvent(event,payload){
 function gameSnapshot(){
  return {room:state.net.room,authorRole:state.net.role,balls:state.balls.map(b=>({n:b.n,x:b.x,y:b.y,vx:b.vx,vy:b.vy,rot:b.rot,onTable:b.onTable})),angle:state.angle,power:state.power,turn:state.turn,scores:state.scores.slice(),groups:state.groups.slice(),animating:state.animating,gameOver:state.gameOver,winner:state.winner,winnerText:state.winnerText||'',skin:state.skin};
 }
+function persistRoomSnapshot(snapshot,force){
+ if(!state.net.room||state.net.role<0)return;
+ const now=Date.now();
+ if(!force&&now-state.net.lastPersisted<500)return;
+ state.net.lastPersisted=now;
+ const payload={room_code:state.net.room,room_state:snapshot,updated_at:new Date().toISOString(),expires_at:new Date(now+24*60*60*1000).toISOString()};
+ // Serialize writes so an older network request cannot overwrite a more recent frame.
+ state.net.persistChain=state.net.persistChain.catch(()=>{}).then(()=>fetch(SUPABASE_URL+'/rest/v1/mesa8_rooms?on_conflict=room_code',{
+  method:'POST',
+  headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},
+  body:JSON.stringify(payload)
+ })).then(response=>{
+  if(!response.ok)throw new Error('snapshot HTTP '+response.status);
+  state.net.persistError=false;
+ }).catch(error=>{
+  state.net.persistError=true;
+  // Realtime remains the low-latency path; the database snapshot is only a recovery backup.
+  console.warn('MESA 8: no se pudo guardar la sala en Supabase.',error);
+ });
+}
+async function loadRoomSnapshot(room){
+ const url=SUPABASE_URL+'/rest/v1/mesa8_rooms?room_code=eq.'+encodeURIComponent(room)+'&select=room_code,room_state,updated_at,expires_at';
+ const response=await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}});
+ if(!response.ok)throw new Error('snapshot read HTTP '+response.status);
+ const rows=await response.json();
+ if(!Array.isArray(rows)||!rows.length)return null;
+ const row=rows[0];
+ if(row.expires_at&&Date.parse(row.expires_at)<=Date.now())return null;
+ const snapshot=row.room_state;
+ if(!snapshot||snapshot.room!==room||!Array.isArray(snapshot.balls))return null;
+ return snapshot;
+}
 function broadcastGameState(force){
  if(state.mode!=='online'||!state.net.connected||state.net.role<0)return;
  const now=Date.now();if(!force&&now-state.net.lastSent<60)return;
- state.net.lastSent=now;sendRoomEvent('game_state',gameSnapshot());
+ state.net.lastSent=now;
+ const snapshot=gameSnapshot();
+ sendRoomEvent('game_state',snapshot);
+ persistRoomSnapshot(snapshot,force);
 }
-function applyRemoteGameState(p){
- if(!p||p.room!==state.net.room||!Array.isArray(p.balls)||p.authorRole===state.net.role)return;
+function applyRemoteGameState(p,restoreOwnSnapshot){
+ if(!p||p.room!==state.net.room||!Array.isArray(p.balls)||(!restoreOwnSnapshot&&p.authorRole===state.net.role))return;
  const wasOver=state.gameOver;
  state.net.activeShooter=Number(p.authorRole);
  state.balls=p.balls.map(b=>({n:Number(b.n),x:Number(b.x),y:Number(b.y),vx:Number(b.vx)||0,vy:Number(b.vy)||0,rot:Number(b.rot)||0,onTable:!!b.onTable}));
@@ -668,16 +703,32 @@ function refreshPresence(){
  $('joinRoomBtn').textContent='Desconectar';$('copyRoomBtn').disabled=false;
  updateHud(true);
  if(state.net.role===0&&!state.net.roomInitialized){
-  state.net.roomInitialized=true;resetMatch(true);
+  state.net.roomInitialized=true;
+  const room=state.net.room;
+  setNetStatus('Conectado · Jugador 1 · recuperando sala…','online');
+  loadRoomSnapshot(room).then(snapshot=>{
+   if(state.net.room!==room||state.net.role!==0)return;
+   if(snapshot){applyRemoteGameState(snapshot,true);tell('Partida recuperada desde Supabase.','good');broadcastGameState(true)}
+   else resetMatch(true);
+   setNetStatus('Conectado · Jugador 1 · '+Math.min(2,state.net.players.length)+'/2','online');
+  }).catch(()=>{
+   if(state.net.room===room&&state.net.role===0)resetMatch(true);
+  });
  }else if(state.net.role===0&&previousCount<players.length&&players.filter(p=>Number(p.role)>=0).length>=2){
   broadcastGameState(true);
  }
  if(state.net.role===1&&!state.net.requestedState){
-  state.net.requestedState=true;sendRoomEvent('request_state',{room:state.net.room});
+  state.net.requestedState=true;
+  const room=state.net.room;
+  loadRoomSnapshot(room).then(snapshot=>{
+   if(state.net.room!==room||state.net.role!==1)return;
+   if(snapshot)applyRemoteGameState(snapshot,true);
+   sendRoomEvent('request_state',{room:room});
+  }).catch(()=>sendRoomEvent('request_state',{room:room}));
  }
 }
 async function leaveRoom(){
- const ch=state.net.channel;state.net.channel=null;state.net.connected=false;state.net.role=-1;state.net.players=[];state.net.room='';state.net.activeShooter=0;state.net.roomInitialized=false;state.net.requestedState=false;state.net.lastSent=0;
+ const ch=state.net.channel;state.net.channel=null;state.net.connected=false;state.net.role=-1;state.net.players=[];state.net.room='';state.net.activeShooter=0;state.net.roomInitialized=false;state.net.requestedState=false;state.net.lastSent=0;state.net.lastPersisted=0;state.net.persistError=false;
  $('joinRoomBtn').textContent='Conectar';$('copyRoomBtn').disabled=true;setNetStatus('Sin conexión','');
  if(ch&&supabaseClient){try{await supabaseClient.removeChannel(ch)}catch(e){}}
  updateHud(true);
