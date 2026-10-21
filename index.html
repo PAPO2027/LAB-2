@@ -638,12 +638,10 @@ function persistRoomSnapshot(snapshot,force){
  state.net.lastPersisted=now;
  const payload={room_code:state.net.room,room_state:snapshot,updated_at:new Date().toISOString(),expires_at:new Date(now+24*60*60*1000).toISOString()};
  // Serialize writes so an older network request cannot overwrite a more recent frame.
- state.net.persistChain=state.net.persistChain.catch(()=>{}).then(()=>fetch(SUPABASE_URL+'/rest/v1/mesa8_rooms?on_conflict=room_code',{
-  method:'POST',
-  headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'},
-  body:JSON.stringify(payload)
- })).then(response=>{
-  if(!response.ok)throw new Error('snapshot HTTP '+response.status);
+ state.net.persistChain=state.net.persistChain.catch(()=>{}).then(async()=>{
+  if(!supabaseClient)throw new Error('Supabase aún no está conectado');
+  const {error}=await supabaseClient.from('mesa8_rooms').upsert(payload,{onConflict:'room_code'});
+  if(error)throw error;
   state.net.persistError=false;
  }).catch(error=>{
   state.net.persistError=true;
@@ -652,24 +650,18 @@ function persistRoomSnapshot(snapshot,force){
  });
 }
 async function loadRoomSnapshot(room){
- const url=SUPABASE_URL+'/rest/v1/mesa8_rooms?room_code=eq.'+encodeURIComponent(room)+'&select=room_code,room_state,updated_at,expires_at';
- const response=await fetch(url,{headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY}});
- if(!response.ok)throw new Error('snapshot read HTTP '+response.status);
- const rows=await response.json();
- if(!Array.isArray(rows)||!rows.length)return null;
- const row=rows[0];
+ if(!supabaseClient)throw new Error('Supabase aún no está conectado');
+ const {data:row,error}=await supabaseClient.from('mesa8_rooms').select('room_code,room_state,updated_at,expires_at').eq('room_code',room).maybeSingle();
+ if(error)throw error;
+ if(!row)return null;
  if(row.expires_at&&Date.parse(row.expires_at)<=Date.now())return null;
  const snapshot=row.room_state;
  if(!snapshot||snapshot.room!==room||!Array.isArray(snapshot.balls))return null;
  return snapshot;
 }
 async function pruneExpiredSnapshots(){
- const cutoff=encodeURIComponent(new Date().toISOString());
  try{
-  await fetch(SUPABASE_URL+'/rest/v1/mesa8_rooms?expires_at=lt.'+cutoff,{
-   method:'DELETE',
-   headers:{apikey:SUPABASE_KEY,Authorization:'Bearer '+SUPABASE_KEY,Prefer:'return=minimal'}
-  });
+  if(supabaseClient)await supabaseClient.from('mesa8_rooms').delete().lt('expires_at',new Date().toISOString());
  }catch(e){/* Removing old snapshots is optional; gameplay uses Realtime. */}
 }
 function broadcastGameState(force){
