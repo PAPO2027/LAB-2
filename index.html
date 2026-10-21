@@ -470,8 +470,9 @@ canvas.addEventListener('pointerdown',e=>{
 canvas.addEventListener('pointermove',e=>{
  if(!canControlTurn()||state.animating||state.gameOver)return;
  const p=pointerPos(e),cue=state.balls.find(b=>b.n===0&&b.onTable);if(!cue)return;
+ // La dirección solo cambia al hacer clic o arrastrar activamente sobre la mesa.
+ // Mover el cursor por encima de la mesa después de soltar el clic no cambia el ángulo.
  if(state.drag&&state.drag.mode==='aim'){state.angle=Math.atan2(p.y-cue.y,p.x-cue.x)}
- else if(e.pointerType==='mouse'&&e.buttons===0){state.angle=Math.atan2(p.y-cue.y,p.x-cue.x)}
  draw();
 });
 canvas.addEventListener('pointerup',e=>{
@@ -636,7 +637,9 @@ function finishShot(){
   return;
  }
  const tableOpen=!state.groups[0]&&!state.groups[1];
- let foul=state.shotFoul||state.firstHit===null;
+ // Mientras la mesa sigue abierta, no se aplican faltas por no tocar una bola propia:
+ // todavía no existe un grupo asignado. La blanca embocada sigue siendo falta.
+ let foul=state.shotFoul||(!tableOpen&&state.firstHit===null);
  if(!foul){
   if(tableOpen&&state.firstHit===8)foul=true;
   else if(!tableOpen){
@@ -644,7 +647,9 @@ function finishShot(){
    else if(groupForBall({n:state.firstHit})!==state.groups[scoringPlayer])foul=true;
   }
  }
- if(!foul&&pots.length===0&&!state.shotRailHit)foul=true;
+ // La obligación de embocar o tocar banda después del contacto se aplica solo
+ // cuando los grupos ya están asignados; el saque inicial tiene su propia validación.
+ if(!foul&&!tableOpen&&pots.length===0&&!state.shotRailHit)foul=true;
  // La falta depende del primer contacto, no de que luego entre una bola del grupo rival.
  if(pots.includes(8)){
   const clearedOwnGroup=!tableOpen&&remainingFor(scoringPlayer)===0;
