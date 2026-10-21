@@ -59,6 +59,7 @@ input[type=range]{width:100%;accent-color:var(--mint);margin:12px 0 2px;cursor:p
 select{width:100%;background:#19322f;color:#eaf6ef;border:1px solid #355750;border-radius:10px;padding:11px 10px;outline:none;font-size:12px}
 select:focus{border-color:var(--mint)}
 .mode-note{font-size:11px;color:var(--muted);line-height:1.55;margin:9px 0 0}
+.room-box{display:none;margin-top:11px;padding:11px;background:#0b1b19;border:1px solid #2b4b43;border-radius:12px}.room-label{display:block;font-size:10px;color:#a9c8ba;font-weight:850;letter-spacing:.08em;margin-bottom:7px}.room-input-row{display:flex;gap:7px}.room-input{min-width:0;width:100%;background:#17312d;color:#f2fbf5;border:1px solid #3a6155;border-radius:9px;padding:10px;font-size:13px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;outline:none}.room-input:focus{border-color:var(--mint)}.room-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}.room-status{font-size:10px;color:#a8c5b7;line-height:1.4}.room-status.online{color:var(--mint)}.room-status.error{color:#ffab9d}.room-input-row .btn{padding:10px 11px}
 .cue-list{display:flex;flex-direction:column;gap:8px}
 .cue-option{width:100%;display:flex;align-items:center;gap:10px;padding:9px;background:#102320;border:1px solid #284440;border-radius:12px;color:var(--text);text-align:left;min-width:0}
 .cue-option:hover{border-color:#689d88}
@@ -144,10 +145,17 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
         <div class="panel-head"><h2>Tipo de partida</h2><small>ELIGE TU RETO</small></div>
         <select id="gameMode" aria-label="Tipo de partida">
           <option value="cpu">8 bolas · contra CPU</option>
+          <option value="online">Multijugador online · 2 personas</option>
           <option value="local">8 bolas · 2 jugadores</option>
           <option value="race">Carrera a 5 · contra CPU</option>
           <option value="practice">Práctica libre</option>
         </select>
+        <div class="room-box" id="onlineControls">
+          <label class="room-label" for="roomCode">CÓDIGO PARA JUGAR CON OTRA PERSONA</label>
+          <div class="room-input-row"><input class="room-input" id="roomCode" maxlength="12" placeholder="EJ. MESA8" autocomplete="off" spellcheck="false"><button class="btn primary" id="joinRoomBtn">Conectar</button></div>
+          <div class="room-actions"><button class="btn subtle" id="copyRoomBtn" disabled>Compartir invitación</button><span class="room-status" id="netStatus">Sin conexión</span></div>
+          <p class="mode-note">Una persona crea la sala y comparte el código o el enlace. La otra entra con el mismo código.</p>
+        </div>
         <p class="mode-note" id="modeNote">Emboca tu grupo y termina con la bola 8. ¡No la metas antes de tiempo!</p>
         <div class="section-divider"></div>
         <div class="panel-head"><h2>Paño de la mesa</h2><small>ESTILO</small></div>
@@ -182,6 +190,7 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function(){
 "use strict";
@@ -209,6 +218,11 @@ const state={
  owned:new Set(saved.owned||['wood','cobalt','carbon']),cueId:saved.cueId||'wood',skin:saved.skin||'green',
  lastTime:0,stillFrames:0,toastTimer:null,shotCount:0,roundAwarded:false
 };
+const SUPABASE_URL='https://ygitfqbuyxbnpwoamlsy.supabase.co';
+const SUPABASE_KEY='sb_publishable_WgNHhhK7dS5yP32ZOn3q1g_fZ5mIyVu';
+function getPlayerId(){try{let id=sessionStorage.getItem('mesa8-player-id');if(!id){id='p-'+Math.random().toString(36).slice(2,9)+'-'+Date.now().toString(36);sessionStorage.setItem('mesa8-player-id',id)}return id}catch(e){return 'p-'+Math.random().toString(36).slice(2,12)}}
+state.net={client:null,channel:null,connected:false,room:'',role:-1,players:[],playerId:getPlayerId(),activeShooter:0,lastSent:0,roomInitialized:false,requestedState:false};
+let supabaseClient=null;
 const $=id=>document.getElementById(id);
 function readSave(){try{return JSON.parse(localStorage.getItem('mesa8-save')||'{}')}catch(e){return {}}}
 function save(){
@@ -224,7 +238,8 @@ function tell(text,type){
 }
 function groupName(g){return g==='solids'?'Lisas':g==='stripes'?'Rayadas':g==='open'?'Mesa abierta':'Sin grupo'}
 function groupForBall(ball){if(ball.n>=1&&ball.n<=7)return 'solids';if(ball.n>=9&&ball.n<=15)return 'stripes';return null}
-function playerName(i){if(state.mode==='local')return i===0?'Jugador 1':'Jugador 2';return i===0?'Tú':'Rival CPU'}
+function playerName(i){if(state.mode==='online'){const p=state.net.players.find(x=>x.role===i);const name=p&&p.name?p.name:'Jugador '+(i+1);return state.net.role===i?'Tú · '+name:name}if(state.mode==='local')return i===0?'Jugador 1':'Jugador 2';return i===0?'Tú':'Rival CPU'}
+function canControlTurn(){if(state.mode==='online')return state.net.connected&&state.net.role>=0&&state.net.role===state.turn;return !(isCPU()&&state.turn===1)}
 function isCPU(){return state.mode==='cpu'||state.mode==='race'}
 function hasMotion(){return state.balls.some(b=>b.onTable&&Math.hypot(b.vx,b.vy)>3)}
 function resetBalls(){
@@ -241,18 +256,18 @@ function resetBalls(){
 }
 function resetMatch(keepMatchCount){
  state.balls=[];resetBalls();state.angle=0;state.power=Number($('power').value)/100;
- state.turn=0;state.scores=[0,0];state.groups=[null,null];state.animating=false;state.gameOver=false;
+ state.turn=0;state.scores=[0,0];state.groups=[null,null];state.animating=false;state.gameOver=false;state.winner=null;state.winnerText='';state.net.activeShooter=0;
  state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount=0;state.roundAwarded=false;
  if(!keepMatchCount){state.played++;save()}
- updateHud();tell(state.mode==='practice'?'Práctica libre: juega sin presión y prueba tus tacos.':'¡Mesa lista! Apunta a la bola blanca y tira cuando estés preparado.','good');
- $('shootBtn').disabled=false;canvas.focus({preventScroll:true});draw();
+ updateHud();tell(state.mode==='practice'?'Práctica libre: juega sin presión y prueba tus tacos.':state.mode==='online'?'Mesa online lista. Espera a que se conecte el otro jugador.':'¡Mesa lista! Apunta a la bola blanca y tira cuando estés preparado.','good');
+ canvas.focus({preventScroll:true});draw();broadcastGameState(true);
 }
 function remainingFor(player){
  const g=state.groups[player];
  if(!g)return state.balls.filter(b=>b.onTable&&b.n!==0&&b.n!==8).length;
  return state.balls.filter(b=>b.onTable&&groupForBall(b)===g).length;
 }
-function updateHud(){
+function updateHud(skipCues){
  $('score0').textContent=state.scores[0];$('score1').textContent=state.scores[1];
  $('name0').textContent=playerName(0);$('name1').textContent=playerName(1);
  $('avatar1').textContent=state.mode==='local'?'P2':state.mode==='practice'?'P2':'CPU';
@@ -265,8 +280,8 @@ function updateHud(){
  $('powerValue').textContent=Math.round(state.power*100)+'%';
  $('cueCount').textContent=state.owned.size+' / '+cues.length;
  $('turnHint').textContent=state.gameOver?'Partida terminada: puedes iniciar otra mesa.':state.animating?'Las bolas están en movimiento…':state.turn===0?'Tu turno: apunta y prepara el tiro.':state.mode==='local'?'Turno del Jugador 2.':'Turno del rival.';
- $('shootBtn').disabled=state.animating||state.gameOver||(isCPU()&&state.turn===1);
- renderCues();
+ $('shootBtn').disabled=state.animating||state.gameOver||!canControlTurn();
+ if(!skipCues)renderCues();
 }
 function renderCues(){
  const list=$('cueList');list.innerHTML='';
@@ -401,7 +416,7 @@ function draw(){
 }
 function pointerPos(e){const r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height}}
 canvas.addEventListener('pointerdown',e=>{
- if(state.animating||state.gameOver||(isCPU()&&state.turn===1))return;
+ if(!canControlTurn()||state.animating||state.gameOver)return;
  e.preventDefault();canvas.setPointerCapture(e.pointerId);
  const p=pointerPos(e),cue=state.balls.find(b=>b.n===0&&b.onTable);if(!cue)return;
  const d=Math.hypot(p.x-cue.x,p.y-cue.y);
@@ -410,7 +425,7 @@ canvas.addEventListener('pointerdown',e=>{
  draw();
 });
 canvas.addEventListener('pointermove',e=>{
- if(state.animating||state.gameOver||(isCPU()&&state.turn===1))return;
+ if(!canControlTurn()||state.animating||state.gameOver)return;
  const p=pointerPos(e),cue=state.balls.find(b=>b.n===0&&b.onTable);if(!cue)return;
  if(state.drag&&state.drag.mode==='power'){
   const dx=state.drag.startX-p.x,dy=state.drag.startY-p.y;
@@ -434,17 +449,22 @@ $('resetBtn').addEventListener('click',()=>resetMatch(false));
 $('newBreakBtn').addEventListener('click',()=>{resetMatch(false);showToast('¡Nuevo saque preparado!')});
 $('gameMode').addEventListener('change',e=>{
  state.mode=e.target.value;
- const notes={cpu:'Emboca tu grupo y termina con la bola 8. ¡No la metas antes de tiempo!',local:'Dos personas juegan por turnos en el mismo dispositivo.',race:'Gana quien emboca primero 5 bolas. La bola 8 no tiene regla especial.',practice:'Sin rival ni puntuación competitiva: prueba ángulos y tacos.'};
- $('modeNote').textContent=notes[state.mode];$('accuracyLabel').textContent=state.mode==='practice'?'MODO LIBRE':'TACO ACTUAL';
- resetMatch(false);
+ const notes={cpu:'Emboca tu grupo y termina con la bola 8. ¡No la metas antes de tiempo!',local:'Dos personas juegan por turnos en el mismo dispositivo.',race:'Gana quien emboca primero 5 bolas. La bola 8 no tiene regla especial.',practice:'Sin rival ni puntuación competitiva: prueba ángulos y tacos.',online:'Conecta dos dispositivos usando el mismo código de sala.'};
+ if(state.net.channel)leaveRoom();
+ $('onlineControls').style.display=state.mode==='online'?'block':'none';
+ $('modeNote').textContent=notes[state.mode]||notes.cpu;$('accuracyLabel').textContent=state.mode==='practice'?'MODO LIBRE':'TACO ACTUAL';
+ resetMatch(true);
 });
 document.querySelectorAll('.skin-btn').forEach(btn=>btn.addEventListener('click',()=>{
- state.skin=btn.dataset.skin;document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b===btn));save();draw();
+ state.skin=btn.dataset.skin;document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b===btn));save();draw();broadcastGameState(true);
 }));
 $('helpBtn').addEventListener('click',()=>{
  showToast('Toca la mesa para apuntar; toca cerca de la blanca y arrastra hacia atrás para tirar. Usa la barra para ajustar la fuerza.');
  tell('1) Apunta tocando la mesa. 2) Arrastra desde la blanca hacia atrás o pulsa TIRAR. 3) Desbloquea tacos con monedas.','good');
 });
+$('joinRoomBtn').addEventListener('click',()=>connectToRoom());
+$('copyRoomBtn').addEventListener('click',()=>shareRoom());
+$('roomCode').addEventListener('keydown',e=>{if(e.key==='Enter')connectToRoom()});
 window.addEventListener('keydown',e=>{
  const tag=document.activeElement&&document.activeElement.tagName;
  if(tag==='INPUT'||tag==='SELECT')return;
@@ -454,13 +474,14 @@ window.addEventListener('keydown',e=>{
  if(e.key.toLowerCase()==='r'){resetMatch(false)}
 });
 function shoot(){
- if(state.animating||state.gameOver||(isCPU()&&state.turn===1))return;
+ if(!canControlTurn()||state.animating||state.gameOver)return;
  const cue=state.balls.find(b=>b.n===0&&b.onTable);
  if(!cue){tell('No se ve la bola blanca. Reinicia la mesa.','warn');return}
  state.animating=true;state.aiming=false;state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount++;
  const c=currentCue();const velocity=state.power*830*c.power;
  cue.vx=Math.cos(state.angle)*velocity;cue.vy=Math.sin(state.angle)*velocity;
- tell('¡Buen tiro!','good');updateHud();draw();
+ state.net.activeShooter=state.mode==='online'?state.net.role:state.turn;
+ tell('¡Buen tiro!','good');updateHud();draw();broadcastGameState(true);
 }
 function updatePhysics(dt){
  const f=Math.pow(.986,dt*60);
@@ -509,7 +530,7 @@ function finishShot(){
  if(state.mode==='practice'){
   if(state.shotFoul){restoreCueBall();tell('La blanca cayó en tronera. Se colocó de nuevo para seguir practicando.','warn')}
   else tell(pots.length?'¡Buen tiro! Embocaste '+pots.length+' bola(s).':'Tiro terminado. Prueba con otro ángulo.','good');
-  state.turn=0;updateHud();save();draw();return;
+  state.turn=0;updateHud();save();draw();broadcastGameState(true);return;
  }
  if(state.mode==='race'){
   state.scores[state.turn]+=pots.length;
@@ -537,7 +558,7 @@ function finishShot(){
   }else if(pots.length){tell('¡Bola embocada! Conservas el turno.','good')}
   else{state.turn=1-state.turn;tell('No entró ninguna bola. Turno del rival.','')}
  }
- updateHud();save();draw();
+ updateHud();save();draw();broadcastGameState(true);
  if(isCPU()&&state.turn===1&&!state.gameOver){setTimeout(cpuTurn,700)}
 }
 function restoreCueBall(){
@@ -546,10 +567,13 @@ function restoreCueBall(){
  cue.x=263;cue.y=280;cue.vx=0;cue.vy=0;cue.onTable=true;
 }
 function endMatch(winner,message){
- state.gameOver=true;state.animating=false;state.aiming=false;state.winnerText=message||playerName(winner)+' gana';
- if(winner===0){state.wins++;state.coins+=70;tell('¡Ganaste la partida! +70 monedas de recompensa.','good');showToast('🏆 Victoria: +70 monedas')}
+ state.gameOver=true;state.animating=false;state.aiming=false;state.winner=winner;state.winnerText=message||playerName(winner)+' gana';
+ if(state.mode==='online'){
+  if(winner===state.net.role){state.wins++;state.coins+=70;tell('¡Ganaste la partida! +70 monedas de recompensa.','good');showToast('🏆 Victoria: +70 monedas')}
+  else{tell('La partida terminó. ¡A por la siguiente!','warn');state.coins+=10}
+ }else if(winner===0){state.wins++;state.coins+=70;tell('¡Ganaste la partida! +70 monedas de recompensa.','good');showToast('🏆 Victoria: +70 monedas')}
  else{tell(state.mode==='local'?'¡Punto para el Jugador 2!':'Esta vez ganó el rival. ¡Inténtalo de nuevo!','warn');state.coins+=10}
- updateHud();save();draw();
+ updateHud();save();draw();broadcastGameState(true);
 }
 function cpuTurn(){
  if(state.gameOver||state.mode==='local'||state.mode==='practice'||state.turn!==1||state.animating)return;
@@ -575,21 +599,140 @@ function cpuTurn(){
  cueBall.vx=Math.cos(state.angle)*state.power*690;cueBall.vy=Math.sin(state.angle)*state.power*690;
  tell('El rival está jugando…','');updateHud();draw();
 }
+
+function setNetStatus(message,kind){
+ const el=$('netStatus');el.textContent=message;el.className='room-status'+(kind?' '+kind:'');
+}
+function readPresence(channel){
+ const raw=channel.presenceState(),all=[];
+ Object.values(raw).forEach(group=>(Array.isArray(group)?group:[group]).forEach(p=>{if(p&&p.playerId)all.push(p)}));
+ const unique=new Map();all.forEach(p=>unique.set(p.playerId,p));
+ return Array.from(unique.values()).sort((a,b)=>(Number(a.role)-Number(b.role))||(Number(a.joinedAt)-Number(b.joinedAt)));
+}
+function sendRoomEvent(event,payload){
+ if(!state.net.channel||!state.net.connected)return;
+ try{const result=state.net.channel.send({type:'broadcast',event:event,payload:payload});if(result&&typeof result.catch==='function')result.catch(()=>{})}catch(e){}
+}
+function gameSnapshot(){
+ return {room:state.net.room,authorRole:state.net.role,balls:state.balls.map(b=>({n:b.n,x:b.x,y:b.y,vx:b.vx,vy:b.vy,onTable:b.onTable})),angle:state.angle,power:state.power,turn:state.turn,scores:state.scores.slice(),groups:state.groups.slice(),animating:state.animating,gameOver:state.gameOver,winner:state.winner,winnerText:state.winnerText||'',skin:state.skin};
+}
+function broadcastGameState(force){
+ if(state.mode!=='online'||!state.net.connected||state.net.role<0)return;
+ const now=Date.now();if(!force&&now-state.net.lastSent<60)return;
+ state.net.lastSent=now;sendRoomEvent('game_state',gameSnapshot());
+}
+function applyRemoteGameState(p){
+ if(!p||p.room!==state.net.room||!Array.isArray(p.balls)||p.authorRole===state.net.role)return;
+ const wasOver=state.gameOver;
+ state.net.activeShooter=Number(p.authorRole);
+ state.balls=p.balls.map(b=>({n:Number(b.n),x:Number(b.x),y:Number(b.y),vx:Number(b.vx)||0,vy:Number(b.vy)||0,onTable:!!b.onTable}));
+ state.angle=Number(p.angle)||0;state.power=Math.max(.15,Math.min(1,Number(p.power)||.62));
+ state.turn=Number(p.turn)||0;state.scores=Array.isArray(p.scores)?p.scores.slice(0,2):[0,0];state.groups=Array.isArray(p.groups)?p.groups.slice(0,2):[null,null];
+ state.animating=!!p.animating;state.aiming=!state.animating;state.gameOver=!!p.gameOver;state.winner=p.winner===null||p.winner===undefined?null:Number(p.winner);state.winnerText=p.winnerText||'';
+ if(['green','blue','purple','red'].includes(p.skin)){state.skin=p.skin;document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b.dataset.skin===state.skin))}
+ $('power').value=Math.round(state.power*100);$('powerValue').textContent=Math.round(state.power*100)+'%';
+ if(!wasOver&&state.gameOver&&state.winner!==null&&state.net.role>=0){
+  if(state.winner===state.net.role){state.wins++;state.coins+=70;showToast('🏆 Victoria: +70 monedas');tell('¡Ganaste la partida! +70 monedas de recompensa.','good')}
+  else{state.coins+=10;tell('La partida terminó. ¡A por la siguiente!','warn')}
+  save();
+ }
+ updateHud(true);draw();
+}
+function refreshPresence(){
+ const ch=state.net.channel;if(!ch||!state.net.connected)return;
+ const previousCount=state.net.players.length;
+ const players=readPresence(ch);state.net.players=players;
+ const me=players.find(p=>p.playerId===state.net.playerId);
+ if(me&&Number.isInteger(Number(me.role)))state.net.role=Number(me.role);
+ if(state.net.role<0||state.net.role>1){
+  setNetStatus('Sala llena: ya hay 2 jugadores','error');
+ }else{
+  setNetStatus('Conectado · Jugador '+(state.net.role+1)+' · '+Math.min(2,players.filter(p=>Number(p.role)>=0).length)+'/2','online');
+ }
+ $('joinRoomBtn').textContent='Desconectar';$('copyRoomBtn').disabled=false;
+ updateHud(true);
+ if(state.net.role===0&&!state.net.roomInitialized){
+  state.net.roomInitialized=true;resetMatch(true);
+ }else if(state.net.role===0&&previousCount<players.length&&players.filter(p=>Number(p.role)>=0).length>=2){
+  broadcastGameState(true);
+ }
+ if(state.net.role===1&&!state.net.requestedState){
+  state.net.requestedState=true;sendRoomEvent('request_state',{room:state.net.room});
+ }
+}
+async function leaveRoom(){
+ const ch=state.net.channel;state.net.channel=null;state.net.connected=false;state.net.role=-1;state.net.players=[];state.net.room='';state.net.activeShooter=0;state.net.roomInitialized=false;state.net.requestedState=false;state.net.lastSent=0;
+ $('joinRoomBtn').textContent='Conectar';$('copyRoomBtn').disabled=true;setNetStatus('Sin conexión','');
+ if(ch&&supabaseClient){try{await supabaseClient.removeChannel(ch)}catch(e){}}
+ updateHud(true);
+}
+async function connectToRoom(){
+ let room=String($('roomCode').value||'').trim().toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,12);
+ if(!room)room='MESA'+Math.random().toString(36).slice(2,6).toUpperCase();
+ $('roomCode').value=room;
+ if(state.net.connected&&state.net.room===room){await leaveRoom();return}
+ if(state.net.channel)await leaveRoom();
+ if(!window.supabase||typeof window.supabase.createClient!=='function'){
+  setNetStatus('No se pudo cargar Supabase. Revisa tu conexión.','error');return;
+ }
+ $('joinRoomBtn').disabled=true;setNetStatus('Conectando a la sala…','');
+ try{
+  if(!supabaseClient)supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{realtime:{params:{eventsPerSecond:25}}});
+  state.net.room=room;state.net.connected=false;state.net.role=-1;state.net.players=[];state.net.roomInitialized=false;state.net.requestedState=false;state.net.lastSent=0;
+  const channel=supabaseClient.channel('mesa8-room-'+room,{config:{broadcast:{self:false},presence:{key:state.net.playerId}}});
+  state.net.channel=channel;
+  channel.on('broadcast',{event:'game_state'},message=>applyRemoteGameState(message.payload));
+  channel.on('broadcast',{event:'request_state'},message=>{if(message.payload&&message.payload.room===state.net.room&&state.net.role===0)broadcastGameState(true)});
+  channel.on('presence',{event:'sync'},()=>refreshPresence());
+  channel.subscribe(async status=>{
+   if(status==='SUBSCRIBED'){
+    const existing=readPresence(channel);
+    const occupied=new Set(existing.filter(p=>p.playerId!==state.net.playerId).map(p=>Number(p.role)));
+    const role=!occupied.has(0)?0:!occupied.has(1)?1:-1;
+    state.net.role=role;state.net.connected=true;
+    try{
+     await channel.track({playerId:state.net.playerId,role:role,name:role===-1?'Espectador':'Jugador '+(role+1),joinedAt:Date.now()});
+     refreshPresence();
+    }catch(err){setNetStatus('No se pudo registrar el jugador.','error')}
+   }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
+    state.net.connected=false;setNetStatus('Error de conexión. Intenta de nuevo.','error');$('joinRoomBtn').disabled=false;$('joinRoomBtn').textContent='Reintentar';
+   }else if(status==='CLOSED'){
+    state.net.connected=false;setNetStatus('Conexión cerrada.','error');$('joinRoomBtn').disabled=false;$('joinRoomBtn').textContent='Conectar';
+   }
+  });
+ }catch(err){
+  state.net.connected=false;setNetStatus('No se pudo conectar a Supabase.','error');
+ }
+ $('joinRoomBtn').disabled=false;
+}
+async function shareRoom(){
+ if(!state.net.room){showToast('Primero conecta una sala.');return}
+ const invite=new URL(window.location.href);invite.searchParams.set('sala',state.net.room);
+ try{await navigator.clipboard.writeText(invite.toString());showToast('¡Enlace de invitación copiado!')}
+ catch(e){showToast('Comparte este código: '+state.net.room)}
+}
+
 function loop(ts){
  if(!state.lastTime)state.lastTime=ts;
  const dt=Math.min(.033,(ts-state.lastTime)/1000);state.lastTime=ts;
  if(state.animating){
-  updatePhysics(dt);
-  if(!hasMotion()){
-   state.stillFrames++;
-   if(state.stillFrames>10){finishShot()}
-  }else state.stillFrames=0;
+  if(state.mode!=='online'||state.net.role===state.net.activeShooter){
+   updatePhysics(dt);
+   if(state.mode==='online')broadcastGameState(false);
+   if(!hasMotion()){
+    state.stillFrames++;
+    if(state.stillFrames>10){finishShot()}
+   }else state.stillFrames=0;
+  }
  }
  draw();
  requestAnimationFrame(loop);
 }
 $('cueInfo').textContent=currentCue().name+': '+currentCue().desc;
+const inviteRoom=new URLSearchParams(window.location.search).get('sala');
+if(inviteRoom){state.mode='online';$('roomCode').value=inviteRoom.toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,12)}
 $('gameMode').value=state.mode;
+$('onlineControls').style.display=state.mode==='online'?'block':'none';
 if(!['green','blue','purple','red'].includes(state.skin))state.skin='green';
 document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b.dataset.skin===state.skin));
 resetMatch(true);
