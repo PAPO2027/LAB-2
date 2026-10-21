@@ -40,10 +40,10 @@ canvas{display:block;width:100%;height:auto;aspect-ratio:25/14;touch-action:none
 .table-caption span{color:var(--gold)}
 .table-tip{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;margin:12px 2px 0}
 .table-tip .dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 10px #69e0b2}
-.control-strip{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;background:#0e2220;border:1px solid var(--line);border-radius:16px;padding:13px 15px;margin-top:14px}
+.control-strip{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;background:#0e2220;border:1px solid var(--line);border-radius:16px;padding:13px 15px;margin-top:14px}.side-power-body{display:flex;align-items:center;gap:13px}.power-vertical{writing-mode:vertical-lr;direction:rtl;width:24px;height:142px;accent-color:var(--mint);cursor:pointer;flex:none;appearance:slider-vertical;-webkit-appearance:slider-vertical}.power-scale{height:142px;display:flex;flex-direction:column;justify-content:space-between;color:#829f91;font-size:10px}.power-readout{font-size:24px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums}.power-note{font-size:10px;line-height:1.55;color:var(--muted);margin-top:7px}.shot-status{font-size:12px;line-height:1.6;color:#bfd8ca}.shot-status strong{color:var(--gold)}
 .power-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:#d6e8de;font-weight:800}
 .power-head span:last-child{color:var(--gold);font-variant-numeric:tabular-nums}
-input[type=range]{width:100%;accent-color:var(--mint);margin:12px 0 2px;cursor:pointer}
+input[type=range]:not(.power-vertical){width:100%;accent-color:var(--mint);margin:12px 0 2px;cursor:pointer}
 .power-labels{display:flex;justify-content:space-between;color:#77948a;font-size:10px}
 .action-buttons{display:flex;gap:8px}
 .btn{border:1px solid var(--line);border-radius:11px;background:#193532;color:var(--text);padding:11px 13px;font-size:12px;font-weight:850;transition:transform .15s,filter .15s,border-color .15s;white-space:nowrap}
@@ -92,7 +92,7 @@ select:focus{border-color:var(--mint)}
 kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5px;font-size:10px;color:#dff4e8}
 @media(max-width:1050px){.layout{grid-template-columns:minmax(0,1fr) 270px;gap:12px}.panel{padding:13px}.cue-option{gap:7px}.cue-preview{width:39px;height:42px}}
 @media(max-width:790px){.app{padding:13px 10px 20px}.layout{grid-template-columns:1fr}.sidebar{display:grid;grid-template-columns:1fr 1fr;align-items:start}.panel.cues-panel{grid-row:span 2}.topbar{align-items:flex-start}.pill.record{display:none}.scoreboard{grid-template-columns:1fr auto 1fr}.player-card{padding:9px}.avatar{width:30px;height:30px;border-radius:9px}.player-name{font-size:11px}.player-detail{font-size:9px}.score-number{font-size:18px}.control-strip{padding:11px;grid-template-columns:1fr}.action-buttons .btn{flex:1}.table-caption{font-size:8px;left:13px;top:12px}}
-@media(max-width:520px){.brand-mark{width:40px;height:40px}.brand p{font-size:9px}.top-right .pill{font-size:11px;padding:8px 10px}.sidebar{grid-template-columns:1fr}.panel.cues-panel{grid-row:auto}.cue-list{display:grid;grid-template-columns:1fr 1fr}.cue-option{align-items:flex-start;padding:8px}.cue-preview{width:32px;height:36px}.cue-preview svg{width:27px;height:27px}.cue-option .cue-price{display:block;margin-top:4px}.scoreboard{gap:4px}.player-card{gap:6px}.table-frame{padding:5px;border-radius:12px}.table-inner{border-radius:8px}.table-tip{font-size:10px}.btn{padding:11px 10px}}
+@media(max-width:520px){.brand-mark{width:40px;height:40px}.brand p{font-size:9px}.top-right .pill{font-size:11px;padding:8px 10px}.sidebar{grid-template-columns:1fr}.panel.cues-panel{grid-row:auto}.cue-list{display:grid;grid-template-columns:1fr 1fr}.cue-option{align-items:flex-start;padding:8px}.cue-preview{width:32px;height:36px}.cue-preview svg{width:27px;height:27px}.cue-option .cue-price{display:block;margin-top:4px}.power-vertical{height:116px}.power-scale{height:116px}.scoreboard{gap:4px}.player-card{gap:6px}.table-frame{padding:5px;border-radius:12px}.table-inner{border-radius:8px}.table-tip{font-size:10px}.btn{padding:11px 10px}}
 </style>
 </head>
 <body>
@@ -127,11 +127,7 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
       <div class="table-tip"><span class="dot"></span><span id="turnHint">Tu turno: apunta y prepara el tiro.</span><span style="margin-left:auto">Atajos: <kbd>←</kbd> <kbd>→</kbd> apuntar · <kbd>Espacio</kbd> tirar · <kbd>R</kbd> reiniciar</span></div>
 
       <div class="control-strip">
-        <div class="power-control">
-          <div class="power-head"><span>FUERZA DEL TIRO</span><span id="powerValue">62%</span></div>
-          <input id="power" type="range" min="15" max="100" value="62" aria-label="Fuerza del tiro">
-          <div class="power-labels"><span>Suave</span><span>Control</span><span>Potente</span></div>
-        </div>
+        <div class="shot-status"><strong>APUNTA · AJUSTA · TIRA</strong><br>El taco queda orientado donde apuntaste. Ajusta la potencia en la barra lateral y pulsa TIRAR cuando estés listo.</div>
         <div class="action-buttons">
           <button class="btn subtle" id="resetBtn" title="Nueva partida">↻ Reiniciar</button>
           <button class="btn primary" id="shootBtn">TIRAR ↗</button>
@@ -164,6 +160,15 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
           <button class="skin-btn" data-skin="blue" aria-label="Azul torneo" title="Azul torneo"><span style="background:linear-gradient(135deg,#247da8,#124366)"></span></button>
           <button class="skin-btn" data-skin="purple" aria-label="Morado noche" title="Morado noche"><span style="background:linear-gradient(135deg,#7652a2,#39265f)"></span></button>
           <button class="skin-btn" data-skin="red" aria-label="Rojo rubí" title="Rojo rubí"><span style="background:linear-gradient(135deg,#a8444c,#671f2b)"></span></button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Potencia del taco</h2><small>CONTROL MANUAL</small></div>
+        <div class="side-power-body">
+          <input id="power" class="power-vertical" type="range" min="15" max="100" value="62" aria-label="Potencia del tiro" title="Ajusta la potencia sin mover el ángulo">
+          <div class="power-scale"><span>FUERTE</span><span>MEDIO</span><span>SUAVE</span></div>
+          <div style="min-width:0;flex:1"><div class="power-readout" id="powerValue">62%</div><div class="power-note">Primero apunta en la mesa. Después mueve esta barra sin cambiar la dirección y pulsa <strong>TIRAR</strong>.</div></div>
         </div>
       </section>
 
@@ -244,13 +249,13 @@ function isCPU(){return state.mode==='cpu'||state.mode==='race'}
 function hasMotion(){return state.balls.some(b=>b.onTable&&Math.hypot(b.vx,b.vy)>3)}
 function resetBalls(){
  state.balls=[];
- state.balls.push({n:0,x:263,y:280,vx:0,vy:0,onTable:true});
+ state.balls.push({n:0,x:263,y:280,vx:0,vy:0,rot:0,onTable:true});
  const order=[1,9,2,10,8,3,11,4,12,5,13,6,14,7,15];
  let k=0;
  for(let row=0;row<5;row++){
   for(let col=0;col<=row;col++){
    const n=order[k++];
-   state.balls.push({n:n,x:690+row*22,y:280+(col-row/2)*24.4,vx:0,vy:0,onTable:true});
+   state.balls.push({n:n,x:690+row*22,y:280+(col-row/2)*24.4,vx:0,vy:0,rot:0,onTable:true});
   }
  }
 }
@@ -337,9 +342,16 @@ function drawTable(){
   ctx.save();ctx.translate(953,y);ctx.rotate(Math.PI/4);ctx.fillRect(-3,-3,6,6);ctx.restore();
  }
  pockets.forEach(p=>{
-  const grad=ctx.createRadialGradient(p.x-3,p.y-4,2,p.x,p.y,27);grad.addColorStop(0,'#020807');grad.addColorStop(.75,'#050908');grad.addColorStop(1,'#25332b');
-  ctx.fillStyle=grad;ctx.beginPath();ctx.arc(p.x,p.y,27,0,Math.PI*2);ctx.fill();
-  ctx.strokeStyle='#d2a16a';ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,26,0,Math.PI*2);ctx.stroke();
+  ctx.save();ctx.shadowColor='#000d';ctx.shadowBlur=13;ctx.shadowOffsetY=5;
+  const rim=ctx.createRadialGradient(p.x-6,p.y-7,2,p.x,p.y,30);
+  rim.addColorStop(0,'#161b1a');rim.addColorStop(.52,'#090d0c');rim.addColorStop(.77,'#343633');rim.addColorStop(.88,'#8e9694');rim.addColorStop(1,'#292e2c');
+  ctx.fillStyle=rim;ctx.beginPath();ctx.ellipse(p.x,p.y,29,28,0,0,Math.PI*2);ctx.fill();ctx.restore();
+  ctx.strokeStyle='#e4e9e7';ctx.lineWidth=1.2;ctx.beginPath();ctx.ellipse(p.x-1,p.y-1,27,26,0,0,Math.PI*2);ctx.stroke();
+  const throat=ctx.createRadialGradient(p.x-6,p.y-8,1,p.x,p.y,23);
+  throat.addColorStop(0,'#000');throat.addColorStop(.58,'#020302');throat.addColorStop(.78,'#080a09');throat.addColorStop(1,'#111514');
+  ctx.fillStyle=throat;ctx.beginPath();ctx.ellipse(p.x,p.y+1,22,22,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#050706';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(p.x,p.y+2,19,19,0,0,Math.PI*2);ctx.stroke();
+  ctx.save();ctx.globalAlpha=.35;ctx.strokeStyle='#727a77';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(p.x-2,p.y-4,17,15,0,Math.PI*1.12,Math.PI*1.9);ctx.stroke();ctx.restore();
  });
  // Faint center emblem.
  ctx.save();ctx.globalAlpha=.22;ctx.strokeStyle='#d9ffeb';ctx.lineWidth=2;ctx.beginPath();ctx.arc(500,280,35,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(500,280,26,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#e9fff5';ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('8',500,280);ctx.restore();
@@ -364,11 +376,18 @@ function drawAim(){
   if(perp<R*2.4){nearest=b;nearestT=t}
  });
  if(nearest){
-  const cx=cueBall.x+dx*(nearestT-R*2),cy=cueBall.y+dy*(nearestT-R*2);
-  ctx.strokeStyle='#fff9c4';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,R+2,0,Math.PI*2);ctx.stroke();
+  const rx=nearest.x-cueBall.x,ry=nearest.y-cueBall.y;
+  const along=rx*dx+ry*dy,side=rx*dy-ry*dx;
+  const travel=Math.max(0,along-Math.sqrt(Math.max(0,(R*2)*(R*2)-side*side)));
+  const cx=cueBall.x+dx*travel,cy=cueBall.y+dy*travel;
+  ctx.save();ctx.strokeStyle='#ffe69a';ctx.fillStyle='rgba(255,230,154,.12)';ctx.setLineDash([4,4]);ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,R-1,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  const nx0=nearest.x-cx,ny0=nearest.y-cy,norm=Math.hypot(nx0,ny0)||1,nx=nx0/norm,ny=ny0/norm,endX=nearest.x+nx*165,endY=nearest.y+ny*165;
+  ctx.save();ctx.strokeStyle='#65f1ff';ctx.fillStyle='#65f1ff';ctx.lineWidth=2.8;ctx.setLineDash([7,5]);ctx.beginPath();ctx.moveTo(nearest.x+nx*(R+2),nearest.y+ny*(R+2));ctx.lineTo(endX,endY);ctx.stroke();ctx.setLineDash([]);
+  const a=Math.atan2(endY-nearest.y,endX-nearest.x),head=10;ctx.beginPath();ctx.moveTo(endX,endY);ctx.lineTo(endX-head*Math.cos(a-.48),endY-head*Math.sin(a-.48));ctx.lineTo(endX-head*Math.cos(a+.48),endY-head*Math.sin(a+.48));ctx.closePath();ctx.fill();ctx.restore();
+  ctx.strokeStyle='#b4f9ff';ctx.lineWidth=2.4;ctx.beginPath();ctx.arc(nearest.x,nearest.y,R+3,0,Math.PI*2);ctx.stroke();
  }
  // Cue stick, shown behind the cue ball.
- const pull=state.drag&&state.drag.mode==='power'?Math.min(28,state.drag.length*.35):0;
+ const pull=8+((state.power-.15)/.85)*31;
  const back=R+17+pull;
  ctx.lineCap='round';ctx.lineWidth=7;ctx.strokeStyle=cue.dark;
  ctx.beginPath();ctx.moveTo(cueBall.x-dx*(back+118),cueBall.y-dy*(back+118));ctx.lineTo(cueBall.x-dx*(back+2),cueBall.y-dy*(back+2));ctx.stroke();
@@ -378,7 +397,7 @@ function drawAim(){
 }
 function drawBall(b){
  if(!b.onTable)return;
- const x=b.x,y=b.y;
+ const x=b.x,y=b.y,rot=Number(b.rot)||0;
  ctx.save();ctx.shadowColor='#020706a8';ctx.shadowBlur=5;ctx.shadowOffsetY=2;
  ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);
  if(b.n===0){
@@ -386,13 +405,18 @@ function drawBall(b){
  }else{
   const base=b.n===8?'#111316':b.n<=7?solidColor(b.n):stripeColor(b.n);
   const g=ctx.createRadialGradient(x-4,y-5,1,x,y,R);g.addColorStop(0,lighten(base));g.addColorStop(.62,base);g.addColorStop(1,'#101715');ctx.fillStyle=g;ctx.fill();
-  if(b.n>=9){ctx.save();ctx.beginPath();ctx.arc(x,y,R-.4,0,Math.PI*2);ctx.clip();ctx.fillStyle='#f9f6e8';ctx.fillRect(x-R,y-5,R*2,10);ctx.restore()}
+  if(b.n>=9){ctx.save();ctx.beginPath();ctx.arc(x,y,R-.4,0,Math.PI*2);ctx.clip();ctx.translate(x,y);ctx.rotate(rot);ctx.fillStyle='#f9f6e8';ctx.fillRect(-R,-5,R*2,10);ctx.restore()}
  }
  ctx.fill();ctx.restore();
- ctx.strokeStyle='#ffffff8a';ctx.lineWidth=.65;ctx.beginPath();ctx.arc(x,y,R-.4,0,Math.PI*2);ctx.stroke();
+ ctx.strokeStyle='#ffffff9c';ctx.lineWidth=.8;ctx.beginPath();ctx.arc(x,y,R-.4,0,Math.PI*2);ctx.stroke();
+ // Rotating surface marks make the roll visible from the top-down camera.
+ ctx.save();ctx.translate(x,y);ctx.rotate(rot);
+ if(b.n===0){ctx.fillStyle='#899590';ctx.beginPath();ctx.arc(0,-6.5,2,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#9ca9a2';ctx.lineWidth=1.1;ctx.beginPath();ctx.arc(0,0,7.4,-.55,.85);ctx.stroke()}
+ else{ctx.fillStyle=b.n>=9?'#302b22':'#fff5cc';ctx.beginPath();ctx.arc(0,-6.7,2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff9e9';ctx.beginPath();ctx.arc(0,6.4,1.45,0,Math.PI*2);ctx.fill()}
+ ctx.restore();
  if(b.n>0){
-  ctx.fillStyle='#fffdf1';ctx.beginPath();ctx.arc(x,y,5.2,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#1a2420';ctx.font='bold 7px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(b.n),x,y+.3);
+  ctx.save();ctx.translate(x,y);ctx.rotate(rot*.82);ctx.fillStyle='#fffdf1';ctx.beginPath();ctx.arc(0,0,5.2,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#1a2420';ctx.font='bold 7px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(b.n),0,.3);ctx.restore();
  }
  ctx.restore();
 }
@@ -405,7 +429,7 @@ function lighten(hex){
 }
 function draw(){
  drawTable();
- if(state.aiming&&!state.animating&&!(isCPU()&&state.turn===1))drawAim();
+ if(state.aiming&&!state.animating&&canControlTurn())drawAim();
  state.balls.forEach(drawBall);
  if(state.gameOver){
   ctx.save();ctx.fillStyle='#04100ed9';ctx.fillRect(250,212,500,136);
@@ -419,28 +443,19 @@ canvas.addEventListener('pointerdown',e=>{
  if(!canControlTurn()||state.animating||state.gameOver)return;
  e.preventDefault();canvas.setPointerCapture(e.pointerId);
  const p=pointerPos(e),cue=state.balls.find(b=>b.n===0&&b.onTable);if(!cue)return;
- const d=Math.hypot(p.x-cue.x,p.y-cue.y);
- if(d<44){state.drag={mode:'power',startX:p.x,startY:p.y,length:0};}
- else{state.drag={mode:'aim',startX:p.x,startY:p.y};state.angle=Math.atan2(p.y-cue.y,p.x-cue.x);}
+ state.drag={mode:'aim'};state.angle=Math.atan2(p.y-cue.y,p.x-cue.x);
  draw();
 });
 canvas.addEventListener('pointermove',e=>{
  if(!canControlTurn()||state.animating||state.gameOver)return;
  const p=pointerPos(e),cue=state.balls.find(b=>b.n===0&&b.onTable);if(!cue)return;
- if(state.drag&&state.drag.mode==='power'){
-  const dx=state.drag.startX-p.x,dy=state.drag.startY-p.y;
-  state.drag.length=Math.hypot(dx,dy);
-  if(state.drag.length>2){state.angle=Math.atan2(dy,dx);state.power=Math.max(.15,Math.min(1,state.drag.length/150));$('power').value=Math.round(state.power*100);$('powerValue').textContent=Math.round(state.power*100)+'%';}
- }else if(state.drag&&state.drag.mode==='aim'){state.angle=Math.atan2(p.y-cue.y,p.x-cue.x)}
+ if(state.drag&&state.drag.mode==='aim'){state.angle=Math.atan2(p.y-cue.y,p.x-cue.x)}
  else if(e.pointerType==='mouse'&&e.buttons===0){state.angle=Math.atan2(p.y-cue.y,p.x-cue.x)}
  draw();
 });
 canvas.addEventListener('pointerup',e=>{
  if(!state.drag)return;
- const mode=state.drag.mode,length=state.drag.length||0;
- state.drag=null;
- if(mode==='power'&&length>9)shoot();
- else draw();
+ state.drag=null;draw();
 });
 canvas.addEventListener('pointercancel',()=>{state.drag=null;draw()});
 $('power').addEventListener('input',e=>{state.power=Number(e.target.value)/100;$('powerValue').textContent=e.target.value+'%';draw()});
@@ -614,7 +629,7 @@ function sendRoomEvent(event,payload){
  try{const result=state.net.channel.send({type:'broadcast',event:event,payload:payload});if(result&&typeof result.catch==='function')result.catch(()=>{})}catch(e){}
 }
 function gameSnapshot(){
- return {room:state.net.room,authorRole:state.net.role,balls:state.balls.map(b=>({n:b.n,x:b.x,y:b.y,vx:b.vx,vy:b.vy,onTable:b.onTable})),angle:state.angle,power:state.power,turn:state.turn,scores:state.scores.slice(),groups:state.groups.slice(),animating:state.animating,gameOver:state.gameOver,winner:state.winner,winnerText:state.winnerText||'',skin:state.skin};
+ return {room:state.net.room,authorRole:state.net.role,balls:state.balls.map(b=>({n:b.n,x:b.x,y:b.y,vx:b.vx,vy:b.vy,rot:b.rot,onTable:b.onTable})),angle:state.angle,power:state.power,turn:state.turn,scores:state.scores.slice(),groups:state.groups.slice(),animating:state.animating,gameOver:state.gameOver,winner:state.winner,winnerText:state.winnerText||'',skin:state.skin};
 }
 function broadcastGameState(force){
  if(state.mode!=='online'||!state.net.connected||state.net.role<0)return;
@@ -625,7 +640,7 @@ function applyRemoteGameState(p){
  if(!p||p.room!==state.net.room||!Array.isArray(p.balls)||p.authorRole===state.net.role)return;
  const wasOver=state.gameOver;
  state.net.activeShooter=Number(p.authorRole);
- state.balls=p.balls.map(b=>({n:Number(b.n),x:Number(b.x),y:Number(b.y),vx:Number(b.vx)||0,vy:Number(b.vy)||0,onTable:!!b.onTable}));
+ state.balls=p.balls.map(b=>({n:Number(b.n),x:Number(b.x),y:Number(b.y),vx:Number(b.vx)||0,vy:Number(b.vy)||0,rot:Number(b.rot)||0,onTable:!!b.onTable}));
  state.angle=Number(p.angle)||0;state.power=Math.max(.15,Math.min(1,Number(p.power)||.62));
  state.turn=Number(p.turn)||0;state.scores=Array.isArray(p.scores)?p.scores.slice(0,2):[0,0];state.groups=Array.isArray(p.groups)?p.groups.slice(0,2):[null,null];
  state.animating=!!p.animating;state.aiming=!state.animating;state.gameOver=!!p.gameOver;state.winner=p.winner===null||p.winner===undefined?null:Number(p.winner);state.winnerText=p.winnerText||'';
