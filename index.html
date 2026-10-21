@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#091b1b">
+<title>Mesa 8 — Pool Arena</title>
+<style>
+:root{--bg:#071414;--panel:#102323;--panel2:#142d2c;--line:#294745;--text:#eef7ef;--muted:#a5beb5;--gold:#f7c96b;--mint:#69e0b2;--felt:#167b56;--felt2:#0c5c43;--danger:#ff737e}
+*{box-sizing:border-box}
+body{margin:0;background:radial-gradient(ellipse at 50% -15%,#235044 0%,#102927 38%,#071414 76%);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}
+button,select,input{font:inherit}
+button{cursor:pointer}
+.app{max-width:1480px;margin:auto;padding:20px clamp(12px,2.5vw,34px) 28px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:19px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand-mark{width:48px;height:48px;border-radius:15px;background:linear-gradient(135deg,#7de4b8,#2b9c74);display:grid;place-items:center;box-shadow:0 8px 24px #0004;color:#09231b;font-size:25px;font-weight:1000;border:1px solid #b1ffdf}
+.brand h1{font-size:clamp(19px,2.5vw,27px);letter-spacing:.07em;margin:0;line-height:1.1}
+.brand p{margin:5px 0 0;color:var(--muted);font-size:11px;letter-spacing:.18em;text-transform:uppercase}
+.top-right{display:flex;align-items:center;gap:10px}
+.pill{border:1px solid var(--line);background:#102321;border-radius:999px;padding:9px 13px;display:flex;gap:8px;align-items:center;font-size:13px;color:#cbe5d7}
+.pill strong{color:var(--gold)}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:18px;align-items:start}
+.main-col{min-width:0}
+.scoreboard{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;margin-bottom:12px}
+.player-card{min-width:0;border:1px solid var(--line);background:linear-gradient(150deg,#15312d,#0d201f);border-radius:15px;padding:12px 14px;display:flex;gap:10px;align-items:center;transition:border-color .2s,box-shadow .2s}
+.player-card.active{border-color:var(--mint);box-shadow:0 0 0 1px #69e0b233,0 7px 24px #0002}
+.player-card.right{flex-direction:row-reverse;text-align:right}
+.avatar{width:38px;height:38px;border-radius:12px;background:#285346;display:grid;place-items:center;font-weight:900;color:#b6f8d8;flex-shrink:0}
+.player-card.right .avatar{background:#4c3b29;color:#ffe0a0}
+.player-name{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.player-detail{font-size:11px;color:var(--muted);margin-top:3px}
+.score-number{font-size:22px;font-weight:900;color:var(--gold);margin-left:auto;font-variant-numeric:tabular-nums}
+.player-card.right .score-number{margin-left:0;margin-right:auto}
+.vs{color:#77958a;font-size:11px;font-weight:900;letter-spacing:.15em}
+.table-frame{position:relative;border:1px solid #426a54;border-radius:17px;padding:8px;background:linear-gradient(135deg,#8f613b,#d5a26a 18%,#6c4429 33%,#b17b4d 52%,#56351f 72%,#b88150);box-shadow:0 22px 50px #0005,inset 0 1px 0 #fff5}
+.table-inner{border-radius:11px;overflow:hidden;background:#0f5e43;position:relative}
+canvas{display:block;width:100%;height:auto;aspect-ratio:25/14;touch-action:none;outline:none}
+.table-caption{position:absolute;left:18px;top:17px;z-index:2;background:#061712bd;border:1px solid #ffffff20;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:800;letter-spacing:.13em;color:#d5f3e5;pointer-events:none}
+.table-caption span{color:var(--gold)}
+.table-tip{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;margin:12px 2px 0}
+.table-tip .dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 10px #69e0b2}
+.control-strip{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;background:#0e2220;border:1px solid var(--line);border-radius:16px;padding:13px 15px;margin-top:14px}
+.power-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;color:#d6e8de;font-weight:800}
+.power-head span:last-child{color:var(--gold);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--mint);margin:12px 0 2px;cursor:pointer}
+.power-labels{display:flex;justify-content:space-between;color:#77948a;font-size:10px}
+.action-buttons{display:flex;gap:8px}
+.btn{border:1px solid var(--line);border-radius:11px;background:#193532;color:var(--text);padding:11px 13px;font-size:12px;font-weight:850;transition:transform .15s,filter .15s,border-color .15s;white-space:nowrap}
+.btn:hover{filter:brightness(1.12);border-color:#6bcba5}.btn:active{transform:scale(.98)}
+.btn.primary{background:linear-gradient(135deg,#88ebbd,#4cc993);color:#06281b;border-color:#a7f8d1;box-shadow:0 5px 16px #2dba7b25}
+.btn.subtle{background:#122624}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.sidebar{display:flex;flex-direction:column;gap:14px}
+.panel{background:linear-gradient(145deg,#112624,#0c1d1c);border:1px solid var(--line);border-radius:17px;padding:16px;box-shadow:0 9px 24px #0002}
+.panel-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:13px}
+.panel h2{font-size:13px;letter-spacing:.08em;text-transform:uppercase;margin:0}
+.panel-head small{font-size:10px;color:var(--muted)}
+select{width:100%;background:#19322f;color:#eaf6ef;border:1px solid #355750;border-radius:10px;padding:11px 10px;outline:none;font-size:12px}
+select:focus{border-color:var(--mint)}
+.mode-note{font-size:11px;color:var(--muted);line-height:1.55;margin:9px 0 0}
+.cue-list{display:flex;flex-direction:column;gap:8px}
+.cue-option{width:100%;display:flex;align-items:center;gap:10px;padding:9px;background:#102320;border:1px solid #284440;border-radius:12px;color:var(--text);text-align:left;min-width:0}
+.cue-option:hover{border-color:#689d88}
+.cue-option.selected{border-color:var(--mint);background:#17362e;box-shadow:inset 0 0 0 1px #69e0b224}
+.cue-preview{width:46px;height:46px;border-radius:10px;background:#213d35;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cue-preview svg{width:35px;height:35px}
+.cue-text{min-width:0;flex:1}
+.cue-title{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:850}
+.cue-sub{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.3}
+.cue-stat{color:#f2d18a;font-size:10px;font-weight:800;margin-top:4px}
+.cue-price{font-size:11px;color:var(--gold);font-weight:900;white-space:nowrap}
+.tag{border-radius:4px;background:#245541;color:#a9f1cd;font-size:8px;text-transform:uppercase;letter-spacing:.07em;padding:3px 4px}
+.tag.locked{background:#3b3422;color:#f8d58b}
+.section-divider{height:1px;background:#23403a;margin:13px 0}
+.skin-row{display:flex;gap:8px}
+.skin-btn{border:2px solid transparent;padding:3px;background:transparent;border-radius:11px;width:44px;height:39px}
+.skin-btn.active{border-color:var(--gold)}
+.skin-btn span{display:block;width:100%;height:100%;border-radius:6px;border:1px solid #ffffff50}
+.mini-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat{background:#102320;border:1px solid #23403b;border-radius:11px;padding:10px}
+.stat b{display:block;font-size:18px;color:var(--gold);font-variant-numeric:tabular-nums}
+.stat span{display:block;margin-top:4px;color:var(--muted);font-size:10px}
+.message{min-height:20px;font-size:12px;font-weight:700;color:#bde8d2}
+.message.warn{color:#ffcf80}.message.good{color:var(--mint)}
+.panel-footer{display:flex;gap:8px;margin-top:10px}
+.panel-footer .btn{flex:1;padding:9px 8px;font-size:11px}
+.footnote{text-align:center;font-size:10px;color:#718d81;margin-top:20px;line-height:1.6}
+.toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,20px);opacity:0;pointer-events:none;background:#e4ffef;color:#09291b;padding:12px 18px;border-radius:12px;font-size:12px;font-weight:900;box-shadow:0 12px 40px #0005;transition:all .22s;z-index:10;max-width:90vw;text-align:center}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5px;font-size:10px;color:#dff4e8}
+@media(max-width:1050px){.layout{grid-template-columns:minmax(0,1fr) 270px;gap:12px}.panel{padding:13px}.cue-option{gap:7px}.cue-preview{width:39px;height:42px}}
+@media(max-width:790px){.app{padding:13px 10px 20px}.layout{grid-template-columns:1fr}.sidebar{display:grid;grid-template-columns:1fr 1fr;align-items:start}.panel.cues-panel{grid-row:span 2}.topbar{align-items:flex-start}.pill.record{display:none}.scoreboard{grid-template-columns:1fr auto 1fr}.player-card{padding:9px}.avatar{width:30px;height:30px;border-radius:9px}.player-name{font-size:11px}.player-detail{font-size:9px}.score-number{font-size:18px}.control-strip{padding:11px;grid-template-columns:1fr}.action-buttons .btn{flex:1}.table-caption{font-size:8px;left:13px;top:12px}}
+@media(max-width:520px){.brand-mark{width:40px;height:40px}.brand p{font-size:9px}.top-right .pill{font-size:11px;padding:8px 10px}.sidebar{grid-template-columns:1fr}.panel.cues-panel{grid-row:auto}.cue-list{display:grid;grid-template-columns:1fr 1fr}.cue-option{align-items:flex-start;padding:8px}.cue-preview{width:32px;height:36px}.cue-preview svg{width:27px;height:27px}.cue-option .cue-price{display:block;margin-top:4px}.scoreboard{gap:4px}.player-card{gap:6px}.table-frame{padding:5px;border-radius:12px}.table-inner{border-radius:8px}.table-tip{font-size:10px}.btn{padding:11px 10px}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">8</div>
+      <div><h1>MESA 8</h1><p>Pool Arena · Reta tu precisión</p></div>
+    </div>
+    <div class="top-right">
+      <div class="pill record">🏆 Victorias <strong id="winsTop">0</strong></div>
+      <div class="pill">🪙 <strong id="coinsTop">120</strong> monedas</div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="main-col">
+      <div class="scoreboard">
+        <div class="player-card active" id="playerCard0">
+          <div class="avatar">P1</div><div style="min-width:0"><div class="player-name" id="name0">Tú</div><div class="player-detail" id="group0">Sin grupo</div></div><div class="score-number" id="score0">0</div>
+        </div>
+        <div class="vs">VS</div>
+        <div class="player-card right" id="playerCard1">
+          <div class="avatar" id="avatar1">CPU</div><div style="min-width:0"><div class="player-name" id="name1">Rival CPU</div><div class="player-detail" id="group1">Sin grupo</div></div><div class="score-number" id="score1">0</div>
+        </div>
+      </div>
+
+      <div class="table-frame">
+        <div class="table-caption">MESA CLÁSICA <span>•</span> 8 BALL</div>
+        <div class="table-inner"><canvas id="table" width="1000" height="560" aria-label="Mesa de billar interactiva" tabindex="0"></canvas></div>
+      </div>
+      <div class="table-tip"><span class="dot"></span><span id="turnHint">Tu turno: apunta y prepara el tiro.</span><span style="margin-left:auto">Atajos: <kbd>←</kbd> <kbd>→</kbd> apuntar · <kbd>Espacio</kbd> tirar · <kbd>R</kbd> reiniciar</span></div>
+
+      <div class="control-strip">
+        <div class="power-control">
+          <div class="power-head"><span>FUERZA DEL TIRO</span><span id="powerValue">62%</span></div>
+          <input id="power" type="range" min="15" max="100" value="62" aria-label="Fuerza del tiro">
+          <div class="power-labels"><span>Suave</span><span>Control</span><span>Potente</span></div>
+        </div>
+        <div class="action-buttons">
+          <button class="btn subtle" id="resetBtn" title="Nueva partida">↻ Reiniciar</button>
+          <button class="btn primary" id="shootBtn">TIRAR ↗</button>
+        </div>
+      </div>
+      <div id="message" class="message" style="margin:12px 4px 0">¡Bienvenido! Selecciona tu taco y rompe el triángulo.</div>
+    </section>
+
+    <aside class="sidebar">
+      <section class="panel">
+        <div class="panel-head"><h2>Tipo de partida</h2><small>ELIGE TU RETO</small></div>
+        <select id="gameMode" aria-label="Tipo de partida">
+          <option value="cpu">8 bolas · contra CPU</option>
+          <option value="local">8 bolas · 2 jugadores</option>
+          <option value="race">Carrera a 5 · contra CPU</option>
+          <option value="practice">Práctica libre</option>
+        </select>
+        <p class="mode-note" id="modeNote">Emboca tu grupo y termina con la bola 8. ¡No la metas antes de tiempo!</p>
+        <div class="section-divider"></div>
+        <div class="panel-head"><h2>Paño de la mesa</h2><small>ESTILO</small></div>
+        <div class="skin-row" aria-label="Color del paño">
+          <button class="skin-btn active" data-skin="green" aria-label="Verde clásico" title="Verde clásico"><span style="background:linear-gradient(135deg,#16865d,#07533d)"></span></button>
+          <button class="skin-btn" data-skin="blue" aria-label="Azul torneo" title="Azul torneo"><span style="background:linear-gradient(135deg,#247da8,#124366)"></span></button>
+          <button class="skin-btn" data-skin="purple" aria-label="Morado noche" title="Morado noche"><span style="background:linear-gradient(135deg,#7652a2,#39265f)"></span></button>
+          <button class="skin-btn" data-skin="red" aria-label="Rojo rubí" title="Rojo rubí"><span style="background:linear-gradient(135deg,#a8444c,#671f2b)"></span></button>
+        </div>
+      </section>
+
+      <section class="panel cues-panel">
+        <div class="panel-head"><h2>Tu colección de tacos</h2><small id="cueCount">3 / 8</small></div>
+        <div class="cue-list" id="cueList"></div>
+        <div class="mode-note">Gana monedas al embocar bolas y vencer partidas. Toca un taco para equiparlo o desbloquearlo.</div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head"><h2>Estadísticas</h2><small>GUARDADO LOCAL</small></div>
+        <div class="mini-stats">
+          <div class="stat"><b id="potStat">0</b><span>Bolas embocadas</span></div>
+          <div class="stat"><b id="matchStat">0</b><span>Partidas jugadas</span></div>
+        </div>
+        <div class="section-divider"></div>
+        <div class="panel-head"><h2>Precisión</h2><small id="accuracyLabel">TACO ACTUAL</small></div>
+        <div class="mode-note" id="cueInfo">Madera: equilibrio y control para practicar cada tiro.</div>
+        <div class="panel-footer"><button class="btn subtle" id="newBreakBtn">Nuevo saque</button><button class="btn subtle" id="helpBtn">Cómo jugar</button></div>
+      </section>
+    </aside>
+  </main>
+  <footer class="footnote">MESA 8 es un juego de billar original para navegador, inspirado en las reglas clásicas de pool.<br>Tu progreso se guarda en este dispositivo. No requiere cuenta ni instalación.</footer>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+"use strict";
+const canvas=document.getElementById('table');
+const ctx=canvas.getContext('2d');
+const W=1000,H=560,R=12;
+const bounds={left:85,right:915,top:82,bottom:478};
+const pockets=[{x:85,y:82},{x:500,y:82},{x:915,y:82},{x:85,y:478},{x:500,y:478},{x:915,y:478}];
+const skinColors={green:['#16865d','#07533d'],blue:['#247da8','#124366'],purple:['#7652a2','#39265f'],red:['#a8444c','#671f2b']};
+const cues=[
+ {id:'wood',name:'Madera clásica',price:0,power:1,aim:1,color:'#d9ad6e',dark:'#774725',desc:'Equilibrio sencillo para aprender.',owned:true},
+ {id:'cobalt',name:'Cobalto',price:0,power:1.07,aim:1.03,color:'#57b8ff',dark:'#174d8d',desc:'Un pequeño extra de potencia.',owned:true},
+ {id:'carbon',name:'Carbono',price:0,power:1.02,aim:1.13,color:'#aab4b7',dark:'#354146',desc:'Guía más clara para apuntar.',owned:true},
+ {id:'phoenix',name:'Fénix',price:180,power:1.16,aim:1.05,color:'#ff9759',dark:'#8d2e24',desc:'Potencia alta para romper el rack.',owned:false},
+ {id:'emerald',name:'Esmeralda',price:260,power:1.08,aim:1.2,color:'#6df0a5',dark:'#126448',desc:'Control fino y línea de ayuda.',owned:false},
+ {id:'neon',name:'Neón',price:350,power:1.22,aim:1.1,color:'#e68cff',dark:'#612986',desc:'Golpes contundentes con estilo.',owned:false},
+ {id:'solar',name:'Solar',price:470,power:1.17,aim:1.26,color:'#ffd767',dark:'#a45514',desc:'Mucha precisión y buena potencia.',owned:false},
+ {id:'prism',name:'Prisma',price:620,power:1.3,aim:1.3,color:'#76ffe6',dark:'#265e78',desc:'El taco de colección más completo.',owned:false}
+];
+const saved=readSave();
+const state={
+ balls:[],angle:0,power:.62,turn:0,scores:[0,0],groups:[null,null],mode:'cpu',
+ aiming:true,drag:null,animating:false,gameOver:false,shotPocketed:[],shotFoul:false,firstHit:null,
+ coins:saved.coins??120,wins:saved.wins??0,played:saved.played??0,potted:saved.potted??0,
+ owned:new Set(saved.owned||['wood','cobalt','carbon']),cueId:saved.cueId||'wood',skin:saved.skin||'green',
+ lastTime:0,stillFrames:0,toastTimer:null,shotCount:0,roundAwarded:false
+};
+const $=id=>document.getElementById(id);
+function readSave(){try{return JSON.parse(localStorage.getItem('mesa8-save')||'{}')}catch(e){return {}}}
+function save(){
+ try{localStorage.setItem('mesa8-save',JSON.stringify({coins:state.coins,wins:state.wins,played:state.played,potted:state.potted,owned:Array.from(state.owned),cueId:state.cueId,skin:state.skin}))}catch(e){}
+}
+function currentCue(){return cues.find(c=>c.id===state.cueId)||cues[0]}
+function showToast(text){
+ const t=$('toast');t.textContent=text;t.classList.add('show');
+ clearTimeout(state.toastTimer);state.toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+}
+function tell(text,type){
+ const m=$('message');m.textContent=text;m.className='message'+(type?' '+type:'');
+}
+function groupName(g){return g==='solids'?'Lisas':g==='stripes'?'Rayadas':g==='open'?'Mesa abierta':'Sin grupo'}
+function groupForBall(ball){if(ball.n>=1&&ball.n<=7)return 'solids';if(ball.n>=9&&ball.n<=15)return 'stripes';return null}
+function playerName(i){if(state.mode==='local')return i===0?'Jugador 1':'Jugador 2';return i===0?'Tú':'Rival CPU'}
+function isCPU(){return state.mode==='cpu'||state.mode==='race'}
+function hasMotion(){return state.balls.some(b=>b.onTable&&Math.hypot(b.vx,b.vy)>3)}
+function resetBalls(){
+ state.balls=[];
+ state.balls.push({n:0,x:263,y:280,vx:0,vy:0,onTable:true});
+ const order=[1,9,2,10,8,3,11,4,12,5,13,6,14,7,15];
+ let k=0;
+ for(let row=0;row<5;row++){
+  for(let col=0;col<=row;col++){
+   const n=order[k++];
+   state.balls.push({n:n,x:690+row*22,y:280+(col-row/2)*24.4,vx:0,vy:0,onTable:true});
+  }
+ }
+}
+function resetMatch(keepMatchCount){
+ state.balls=[];resetBalls();state.angle=0;state.power=Number($('power').value)/100;
+ state.turn=0;state.scores=[0,0];state.groups=[null,null];state.animating=false;state.gameOver=false;
+ state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount=0;state.roundAwarded=false;
+ if(!keepMatchCount){state.played++;save()}
+ updateHud();tell(state.mode==='practice'?'Práctica libre: juega sin presión y prueba tus tacos.':'¡Mesa lista! Apunta a la bola blanca y tira cuando estés preparado.','good');
+ $('shootBtn').disabled=false;canvas.focus({preventScroll:true});draw();
+}
+function remainingFor(player){
+ const g=state.groups[player];
+ if(!g)return state.balls.filter(b=>b.onTable&&b.n!==0&&b.n!==8).length;
+ return state.balls.filter(b=>b.onTable&&groupForBall(b)===g).length;
+}
+function updateHud(){
+ $('score0').textContent=state.scores[0];$('score1').textContent=state.scores[1];
+ $('name0').textContent=playerName(0);$('name1').textContent=playerName(1);
+ $('avatar1').textContent=state.mode==='local'?'P2':state.mode==='practice'?'P2':'CPU';
+ $('group0').textContent=state.mode==='race'?'Meta: 5 bolas':state.mode==='practice'?'Modo práctica':groupName(state.groups[0]);
+ $('group1').textContent=state.mode==='race'?'Meta: 5 bolas':state.mode==='practice'?'Modo práctica':groupName(state.groups[1]);
+ $('playerCard0').classList.toggle('active',state.turn===0&&!state.gameOver);
+ $('playerCard1').classList.toggle('active',state.turn===1&&!state.gameOver);
+ $('winsTop').textContent=state.wins;$('coinsTop').textContent=state.coins;
+ $('potStat').textContent=state.potted;$('matchStat').textContent=state.played;
+ $('powerValue').textContent=Math.round(state.power*100)+'%';
+ $('cueCount').textContent=state.owned.size+' / '+cues.length;
+ $('turnHint').textContent=state.gameOver?'Partida terminada: puedes iniciar otra mesa.':state.animating?'Las bolas están en movimiento…':state.turn===0?'Tu turno: apunta y prepara el tiro.':state.mode==='local'?'Turno del Jugador 2.':'Turno del rival.';
+ $('shootBtn').disabled=state.animating||state.gameOver||(isCPU()&&state.turn===1);
+ renderCues();
+}
+function renderCues(){
+ const list=$('cueList');list.innerHTML='';
+ cues.forEach(c=>{
+  const owned=state.owned.has(c.id);
+  const chosen=state.cueId===c.id;
+  const row=document.createElement('button');
+  row.className='cue-option'+(chosen?' selected':'');
+  row.type='button';
+  row.setAttribute('aria-label',owned?'Equipar taco '+c.name:'Desbloquear taco '+c.name+' por '+c.price+' monedas');
+  const lock=owned?'EQUIPADO':'BLOQUEADO';
+  row.innerHTML='<div class="cue-preview"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M7 29 L28 7" stroke="'+c.dark+'" stroke-width="5.8" stroke-linecap="round"/><path d="M7 29 L28 7" stroke="'+c.color+'" stroke-width="3.2" stroke-linecap="round"/><path d="M5.2 30.8 L8.7 27.3" stroke="#f4e8cf" stroke-width="2.2" stroke-linecap="round"/><path d="M24 11 L27 8" stroke="#ffffff99" stroke-width="1"/></svg></div><div class="cue-text"><div class="cue-title">'+c.name+' '+(chosen?'<span class="tag">Activo</span>':owned?'<span class="tag">Propio</span>':'<span class="tag locked">Nuevo</span>')+'</div><div class="cue-sub">'+c.desc+'</div><div class="cue-stat">Potencia '+Math.round(c.power*100)+' · Precisión '+Math.round(c.aim*100)+'</div></div><span class="cue-price">'+(owned?(chosen?'✓':'Equipar'):'🪙 '+c.price)+'</span>';
+  row.addEventListener('click',()=>{
+   if(owned){state.cueId=c.id;save();renderCues();$('cueInfo').textContent=c.name+': '+c.desc;showToast('Taco equipado: '+c.name);draw()}
+   else if(state.coins>=c.price){
+    state.coins-=c.price;state.owned.add(c.id);state.cueId=c.id;save();updateHud();
+    $('cueInfo').textContent=c.name+': '+c.desc;showToast('¡Desbloqueaste '+c.name+'!');
+   }else{showToast('Te faltan '+(c.price-state.coins)+' monedas para este taco.')}
+  });
+  list.appendChild(row);
+ });
+}
+function roundRect(c,x,y,w,h,r){
+ c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();
+}
+function drawTable(){
+ const colors=skinColors[state.skin]||skinColors.green;
+ const cloth=ctx.createLinearGradient(70,70,930,480);cloth.addColorStop(0,colors[0]);cloth.addColorStop(1,colors[1]);
+ ctx.clearRect(0,0,W,H);
+ const wood=ctx.createLinearGradient(0,20,1000,550);wood.addColorStop(0,'#d0a16a');wood.addColorStop(.25,'#87532f');wood.addColorStop(.5,'#d4a16a');wood.addColorStop(.73,'#704326');wood.addColorStop(1,'#c08a54');
+ ctx.fillStyle='#07110f';roundRect(ctx,20,18,960,524,24);ctx.fill();
+ ctx.save();ctx.shadowColor='#0009';ctx.shadowBlur=16;ctx.shadowOffsetY=10;
+ ctx.fillStyle=wood;roundRect(ctx,28,24,944,512,23);ctx.fill();ctx.restore();
+ ctx.strokeStyle='#f4cc8b80';ctx.lineWidth=2;roundRect(ctx,36,32,928,496,17);ctx.stroke();
+ ctx.fillStyle='#211b15';roundRect(ctx,58,53,884,454,17);ctx.fill();
+ ctx.fillStyle=cloth;roundRect(ctx,65,59,870,442,12);ctx.fill();
+ // Delicate cloth grain and tournament markings.
+ ctx.save();ctx.globalAlpha=.09;ctx.strokeStyle='#dbffe8';ctx.lineWidth=1;
+ for(let x=95;x<910;x+=24){ctx.beginPath();ctx.moveTo(x,90);ctx.lineTo(x+12,470);ctx.stroke()}
+ ctx.restore();
+ ctx.strokeStyle='#dcf3e520';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(280,82);ctx.lineTo(280,478);ctx.stroke();
+ ctx.beginPath();ctx.arc(280,280,3,0,Math.PI*2);ctx.stroke();
+ ctx.strokeStyle='#ffffff26';ctx.beginPath();ctx.moveTo(500,82);ctx.lineTo(500,88);ctx.moveTo(500,472);ctx.lineTo(500,478);ctx.stroke();
+ // Diamonds on the wooden rails.
+ for(let i=0;i<9;i++){
+  const x=120+i*95;
+  ctx.fillStyle='#ffe4b3';ctx.save();ctx.translate(x,42);ctx.rotate(Math.PI/4);ctx.fillRect(-3,-3,6,6);ctx.restore();
+  if(i<8){ctx.save();ctx.translate(x,518);ctx.rotate(Math.PI/4);ctx.fillRect(-3,-3,6,6);ctx.restore()}
+ }
+ for(let i=0;i<3;i++){
+  const y=145+i*135;
+  ctx.fillStyle='#ffe4b3';ctx.save();ctx.translate(47,y);ctx.rotate(Math.PI/4);ctx.fillRect(-3,-3,6,6);ctx.restore();
+  ctx.save();ctx.translate(953,y);ctx.rotate(Math.PI/4);ctx.fillRect(-3,-3,6,6);ctx.restore();
+ }
+ pockets.forEach(p=>{
+  const grad=ctx.createRadialGradient(p.x-3,p.y-4,2,p.x,p.y,27);grad.addColorStop(0,'#020807');grad.addColorStop(.75,'#050908');grad.addColorStop(1,'#25332b');
+  ctx.fillStyle=grad;ctx.beginPath();ctx.arc(p.x,p.y,27,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#d2a16a';ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y,26,0,Math.PI*2);ctx.stroke();
+ });
+ // Faint center emblem.
+ ctx.save();ctx.globalAlpha=.22;ctx.strokeStyle='#d9ffeb';ctx.lineWidth=2;ctx.beginPath();ctx.arc(500,280,35,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(500,280,26,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#e9fff5';ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('8',500,280);ctx.restore();
+}
+function drawAim(){
+ const cueBall=state.balls.find(b=>b.n===0&&b.onTable);
+ if(!cueBall||state.gameOver)return;
+ const cue=currentCue();
+ const dx=Math.cos(state.angle),dy=Math.sin(state.angle);
+ // Direction guide, including a longer guide when precision is improved.
+ const guideLen=290+Math.max(0,cue.aim-1)*300;
+ ctx.save();
+ ctx.lineWidth=2;ctx.setLineDash([7,7]);ctx.strokeStyle='rgba(255,255,245,'+Math.min(.76,.42+(cue.aim-1)*1.8)+')';
+ ctx.beginPath();ctx.moveTo(cueBall.x+dx*(R+2),cueBall.y+dy*(R+2));ctx.lineTo(cueBall.x+dx*guideLen,cueBall.y+dy*guideLen);ctx.stroke();ctx.setLineDash([]);
+ // Draw a small contact indicator for the nearest ball along the aim line.
+ let nearest=null,nearestT=guideLen;
+ state.balls.forEach(b=>{
+  if(!b.onTable||b.n===0)return;
+  const vx=b.x-cueBall.x,vy=b.y-cueBall.y;
+  const t=vx*dx+vy*dy;if(t<R*2||t>nearestT)return;
+  const perp=Math.abs(vx*dy-vy*dx);
+  if(perp<R*2.4){nearest=b;nearestT=t}
+ });
+ if(nearest){
+  const cx=cueBall.x+dx*(nearestT-R*2),cy=cueBall.y+dy*(nearestT-R*2);
+  ctx.strokeStyle='#fff9c4';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,R+2,0,Math.PI*2);ctx.stroke();
+ }
+ // Cue stick, shown behind the cue ball.
+ const pull=state.drag&&state.drag.mode==='power'?Math.min(28,state.drag.length*.35):0;
+ const back=R+17+pull;
+ ctx.lineCap='round';ctx.lineWidth=7;ctx.strokeStyle=cue.dark;
+ ctx.beginPath();ctx.moveTo(cueBall.x-dx*(back+118),cueBall.y-dy*(back+118));ctx.lineTo(cueBall.x-dx*(back+2),cueBall.y-dy*(back+2));ctx.stroke();
+ const stickGrad=ctx.createLinearGradient(cueBall.x-dx*(back+115),cueBall.y-dy*(back+115),cueBall.x-dx*back,cueBall.y-dy*back);stickGrad.addColorStop(0,cue.color);stickGrad.addColorStop(.74,cue.dark);stickGrad.addColorStop(1,'#efe1bd');
+ ctx.lineWidth=4;ctx.strokeStyle=stickGrad;ctx.beginPath();ctx.moveTo(cueBall.x-dx*(back+118),cueBall.y-dy*(back+118));ctx.lineTo(cueBall.x-dx*(back+2),cueBall.y-dy*(back+2));ctx.stroke();
+ ctx.restore();
+}
+function drawBall(b){
+ if(!b.onTable)return;
+ const x=b.x,y=b.y;
+ ctx.save();ctx.shadowColor='#020706a8';ctx.shadowBlur=5;ctx.shadowOffsetY=2;
+ ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);
+ if(b.n===0){
+  const g=ctx.createRadialGradient(x-4,y-5,1,x,y,R);g.addColorStop(0,'#ffffff');g.addColorStop(1,'#cdd5d0');ctx.fillStyle=g;ctx.fill();
+ }else{
+  const base=b.n===8?'#111316':b.n<=7?solidColor(b.n):stripeColor(b.n);
+  const g=ctx.createRadialGradient(x-4,y-5,1,x,y,R);g.addColorStop(0,lighten(base));g.addColorStop(.62,base);g.addColorStop(1,'#101715');ctx.fillStyle=g;ctx.fill();
+  if(b.n>=9){ctx.save();ctx.beginPath();ctx.arc(x,y,R-.4,0,Math.PI*2);ctx.clip();ctx.fillStyle='#f9f6e8';ctx.fillRect(x-R,y-5,R*2,10);ctx.restore()}
+ }
+ ctx.fill();ctx.restore();
+ ctx.strokeStyle='#ffffff8a';ctx.lineWidth=.65;ctx.beginPath();ctx.arc(x,y,R-.4,0,Math.PI*2);ctx.stroke();
+ if(b.n>0){
+  ctx.fillStyle='#fffdf1';ctx.beginPath();ctx.arc(x,y,5.2,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#1a2420';ctx.font='bold 7px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(b.n),x,y+.3);
+ }
+ ctx.restore();
+}
+const colors=['','#f7c844','#3384cb','#d94a45','#7558ad','#ef8733','#39a76a','#b94274'];
+function solidColor(n){return colors[n]||'#f5e7cd'}
+function stripeColor(n){return colors[n-8]||'#e6dcaf'}
+function lighten(hex){
+ const h=hex.replace('#','');const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+ return '#'+[r,g,b].map(v=>Math.min(255,v+70).toString(16).padStart(2,'0')).join('');
+}
+function draw(){
+ drawTable();
+ if(state.aiming&&!state.animating&&!(isCPU()&&state.turn===1))drawAim();
+ state.balls.forEach(drawBall);
+ if(state.gameOver){
+  ctx.save();ctx.fillStyle='#04100ed9';ctx.fillRect(250,212,500,136);
+  ctx.strokeStyle='#70e4b4';ctx.lineWidth=2;roundRect(ctx,250,212,500,136,18);ctx.stroke();
+  ctx.fillStyle='#fff7db';ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='900 32px system-ui';ctx.fillText(state.winnerText||'PARTIDA TERMINADA',500,260);
+  ctx.fillStyle='#b6d9c9';ctx.font='15px system-ui';ctx.fillText('Pulsa «Reiniciar» para volver a jugar',500,302);ctx.restore();
+ }
+}
+function pointerPos(e){const r=canvas.getBoundingClientRect();return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height}}
+canvas.addEventListener('pointerdown',e=>{
+ if(state.animating||state.gameOver||(isCPU()&&state.turn===1))return;
+ e.preventDefault();canvas.setPointerCapture(e.pointerId);
+ const p=pointerPos(e),cue=state.balls.find(b=>b.n===0&&b.onTable);if(!cue)return;
+ const d=Math.hypot(p.x-cue.x,p.y-cue.y);
+ if(d<44){state.drag={mode:'power',startX:p.x,startY:p.y,length:0};}
+ else{state.drag={mode:'aim',startX:p.x,startY:p.y};state.angle=Math.atan2(p.y-cue.y,p.x-cue.x);}
+ draw();
+});
+canvas.addEventListener('pointermove',e=>{
+ if(state.animating||state.gameOver||(isCPU()&&state.turn===1))return;
+ const p=pointerPos(e),cue=state.balls.find(b=>b.n===0&&b.onTable);if(!cue)return;
+ if(state.drag&&state.drag.mode==='power'){
+  const dx=state.drag.startX-p.x,dy=state.drag.startY-p.y;
+  state.drag.length=Math.hypot(dx,dy);
+  if(state.drag.length>2){state.angle=Math.atan2(dy,dx);state.power=Math.max(.15,Math.min(1,state.drag.length/150));$('power').value=Math.round(state.power*100);$('powerValue').textContent=Math.round(state.power*100)+'%';}
+ }else if(state.drag&&state.drag.mode==='aim'){state.angle=Math.atan2(p.y-cue.y,p.x-cue.x)}
+ else if(e.pointerType==='mouse'&&e.buttons===0){state.angle=Math.atan2(p.y-cue.y,p.x-cue.x)}
+ draw();
+});
+canvas.addEventListener('pointerup',e=>{
+ if(!state.drag)return;
+ const mode=state.drag.mode,length=state.drag.length||0;
+ state.drag=null;
+ if(mode==='power'&&length>9)shoot();
+ else draw();
+});
+canvas.addEventListener('pointercancel',()=>{state.drag=null;draw()});
+$('power').addEventListener('input',e=>{state.power=Number(e.target.value)/100;$('powerValue').textContent=e.target.value+'%';draw()});
+$('shootBtn').addEventListener('click',shoot);
+$('resetBtn').addEventListener('click',()=>resetMatch(false));
+$('newBreakBtn').addEventListener('click',()=>{resetMatch(false);showToast('¡Nuevo saque preparado!')});
+$('gameMode').addEventListener('change',e=>{
+ state.mode=e.target.value;
+ const notes={cpu:'Emboca tu grupo y termina con la bola 8. ¡No la metas antes de tiempo!',local:'Dos personas juegan por turnos en el mismo dispositivo.',race:'Gana quien emboca primero 5 bolas. La bola 8 no tiene regla especial.',practice:'Sin rival ni puntuación competitiva: prueba ángulos y tacos.'};
+ $('modeNote').textContent=notes[state.mode];$('accuracyLabel').textContent=state.mode==='practice'?'MODO LIBRE':'TACO ACTUAL';
+ resetMatch(false);
+});
+document.querySelectorAll('.skin-btn').forEach(btn=>btn.addEventListener('click',()=>{
+ state.skin=btn.dataset.skin;document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b===btn));save();draw();
+}));
+$('helpBtn').addEventListener('click',()=>{
+ showToast('Toca la mesa para apuntar; toca cerca de la blanca y arrastra hacia atrás para tirar. Usa la barra para ajustar la fuerza.');
+ tell('1) Apunta tocando la mesa. 2) Arrastra desde la blanca hacia atrás o pulsa TIRAR. 3) Desbloquea tacos con monedas.','good');
+});
+window.addEventListener('keydown',e=>{
+ const tag=document.activeElement&&document.activeElement.tagName;
+ if(tag==='INPUT'||tag==='SELECT')return;
+ if(e.code==='ArrowLeft'){e.preventDefault();state.angle-=.035;draw()}
+ if(e.code==='ArrowRight'){e.preventDefault();state.angle+=.035;draw()}
+ if(e.code==='Space'){e.preventDefault();shoot()}
+ if(e.key.toLowerCase()==='r'){resetMatch(false)}
+});
+function shoot(){
+ if(state.animating||state.gameOver||(isCPU()&&state.turn===1))return;
+ const cue=state.balls.find(b=>b.n===0&&b.onTable);
+ if(!cue){tell('No se ve la bola blanca. Reinicia la mesa.','warn');return}
+ state.animating=true;state.aiming=false;state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount++;
+ const c=currentCue();const velocity=state.power*830*c.power;
+ cue.vx=Math.cos(state.angle)*velocity;cue.vy=Math.sin(state.angle)*velocity;
+ tell('¡Buen tiro!','good');updateHud();draw();
+}
+function updatePhysics(dt){
+ const f=Math.pow(.986,dt*60);
+ for(const b of state.balls){
+  if(!b.onTable)continue;
+  b.x+=b.vx*dt;b.y+=b.vy*dt;
+  b.vx*=f;b.vy*=f;
+  if(Math.abs(b.vx)<2.5)b.vx=0;if(Math.abs(b.vy)<2.5)b.vy=0;
+  // A ball entering a pocket disappears from play.
+  let pocketed=false;
+  for(const p of pockets){
+   if(Math.hypot(b.x-p.x,b.y-p.y)<23&&((b.x<110||b.x>890)||(b.y<108||b.y>452)||Math.hypot(b.x-p.x,b.y-p.y)<20)){
+    b.onTable=false;b.vx=0;b.vy=0;pocketed=true;
+    if(b.n===0)state.shotFoul=true;
+    else{state.shotPocketed.push(b.n);state.potted++;state.coins+=2}
+    break;
+   }
+  }
+  if(pocketed)continue;
+  if(b.x<bounds.left+R){b.x=bounds.left+R;b.vx=Math.abs(b.vx)*.88}
+  if(b.x>bounds.right-R){b.x=bounds.right-R;b.vx=-Math.abs(b.vx)*.88}
+  if(b.y<bounds.top+R){b.y=bounds.top+R;b.vy=Math.abs(b.vy)*.88}
+  if(b.y>bounds.bottom-R){b.y=bounds.bottom-R;b.vy=-Math.abs(b.vy)*.88}
+ }
+ // Equal-mass ball collisions with overlap correction.
+ for(let i=0;i<state.balls.length;i++){
+  const a=state.balls[i];if(!a.onTable)continue;
+  for(let j=i+1;j<state.balls.length;j++){
+   const b=state.balls[j];if(!b.onTable)continue;
+   let dx=b.x-a.x,dy=b.y-a.y,dist=Math.hypot(dx,dy),min=R*2;
+   if(dist===0){dx=.01;dy=.01;dist=Math.hypot(dx,dy)}
+   if(dist>=min)continue;
+   const nx=dx/dist,ny=dy/dist,overlap=(min-dist)/2;
+   a.x-=nx*overlap;b.x+=nx*overlap;a.y-=ny*overlap;b.y+=ny*overlap;
+   const rel=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
+   if(rel>0)continue;
+   const impulse=-rel*0.96;
+   a.vx+=impulse*nx;a.vy+=impulse*ny;b.vx-=impulse*nx;b.vy-=impulse*ny;
+   if((a.n===0||b.n===0)&&!state.firstHit)state.firstHit=a.n===0?b.n:a.n;
+  }
+ }
+}
+function finishShot(){
+ state.animating=false;state.aiming=true;
+ const pots=state.shotPocketed;
+ if(state.mode==='practice'){
+  if(state.shotFoul){restoreCueBall();tell('La blanca cayó en tronera. Se colocó de nuevo para seguir practicando.','warn')}
+  else tell(pots.length?'¡Buen tiro! Embocaste '+pots.length+' bola(s).':'Tiro terminado. Prueba con otro ángulo.','good');
+  state.turn=0;updateHud();save();draw();return;
+ }
+ if(state.mode==='race'){
+  state.scores[state.turn]+=pots.length;
+  if(state.shotFoul)restoreCueBall();
+  if(state.scores[state.turn]>=5){endMatch(state.turn,'¡Carrera ganada!');return}
+  if(pots.length&&!state.shotFoul){tell('¡Sigue tu turno! '+pots.length+' bola(s) embocada(s).','good')}
+  else{state.turn=1-state.turn;tell(state.shotFoul?'Falta: la blanca cayó. Cambia el turno.':'Sin bolas embocadas: cambia el turno.',state.shotFoul?'warn':'')}
+ }else{
+  const eight=pots.includes(8);
+  const playerGroup=state.groups[state.turn];
+  const foulByHit=state.firstHit!==null&&playerGroup&&groupForBall({n:state.firstHit})!==playerGroup&&state.firstHit!==8;
+  const foul=state.shotFoul||foulByHit;
+  if(eight){
+   const remaining=remainingFor(state.turn);
+   if(playerGroup&&remaining===0&&!foul){endMatch(state.turn,'¡Victoria brillante!');return}
+   else{endMatch(1-state.turn,'¡La bola 8 decidió la partida!');return}
+  }
+  if(!state.groups[0]&&!state.groups[1]&&!foul){
+   const first=pots.find(n=>n!==8);
+   if(first){const g=groupForBall({n:first});if(g){state.groups[state.turn]=g;state.groups[1-state.turn]=g==='solids'?'stripes':'solids'}}
+  }
+  if(foul){
+   restoreCueBall();state.turn=1-state.turn;state.shotFoul=false;
+   tell('Falta: el rival toma el turno y la blanca vuelve a la mesa.','warn');
+  }else if(pots.length){tell('¡Bola embocada! Conservas el turno.','good')}
+  else{state.turn=1-state.turn;tell('No entró ninguna bola. Turno del rival.','')}
+ }
+ updateHud();save();draw();
+ if(isCPU()&&state.turn===1&&!state.gameOver){setTimeout(cpuTurn,700)}
+}
+function restoreCueBall(){
+ let cue=state.balls.find(b=>b.n===0);
+ if(!cue){cue={n:0,x:263,y:280,vx:0,vy:0,onTable:true};state.balls.unshift(cue)}
+ cue.x=263;cue.y=280;cue.vx=0;cue.vy=0;cue.onTable=true;
+}
+function endMatch(winner,message){
+ state.gameOver=true;state.animating=false;state.aiming=false;state.winnerText=message||playerName(winner)+' gana';
+ if(winner===0){state.wins++;state.coins+=70;tell('¡Ganaste la partida! +70 monedas de recompensa.','good');showToast('🏆 Victoria: +70 monedas')}
+ else{tell(state.mode==='local'?'¡Punto para el Jugador 2!':'Esta vez ganó el rival. ¡Inténtalo de nuevo!','warn');state.coins+=10}
+ updateHud();save();draw();
+}
+function cpuTurn(){
+ if(state.gameOver||state.mode==='local'||state.mode==='practice'||state.turn!==1||state.animating)return;
+ const cueBall=state.balls.find(b=>b.n===0&&b.onTable);
+ const targets=state.balls.filter(b=>b.onTable&&b.n!==0);
+ if(!cueBall||!targets.length){endMatch(0,'¡Mesa despejada!');return}
+ let best=null;
+ targets.forEach(ball=>{
+  pockets.forEach(p=>{
+   const px=p.x-ball.x,py=p.y-ball.y,len=Math.hypot(px,py);if(len<1)return;
+   const ux=px/len,uy=py/len;
+   const tx=ball.x-ux*(R*2+.5),ty=ball.y-uy*(R*2+.5);
+   const ax=tx-cueBall.x,ay=ty-cueBall.y,dist=Math.hypot(ax,ay);if(dist<1)return;
+   const cosine=(ax/dist)*ux+(ay/dist)*uy;
+   const score=dist+(1-cosine)*360+len*.24;
+   if(!best||score<best.score)best={ball,p,angle:Math.atan2(ay,ax),score};
+  })
+ });
+ state.angle=best?best.angle:Math.atan2(targets[0].y-cueBall.y,targets[0].x-cueBall.x);
+ state.power=.51+Math.random()*.17;$('power').value=Math.round(state.power*100);$('powerValue').textContent=Math.round(state.power*100)+'%';
+ // The CPU uses its own basic cue so player upgrades are not applied to the rival.
+ state.animating=true;state.aiming=false;state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount++;
+ cueBall.vx=Math.cos(state.angle)*state.power*690;cueBall.vy=Math.sin(state.angle)*state.power*690;
+ tell('El rival está jugando…','');updateHud();draw();
+}
+function loop(ts){
+ if(!state.lastTime)state.lastTime=ts;
+ const dt=Math.min(.033,(ts-state.lastTime)/1000);state.lastTime=ts;
+ if(state.animating){
+  updatePhysics(dt);
+  if(!hasMotion()){
+   state.stillFrames++;
+   if(state.stillFrames>10){finishShot()}
+  }else state.stillFrames=0;
+ }
+ draw();
+ requestAnimationFrame(loop);
+}
+$('cueInfo').textContent=currentCue().name+': '+currentCue().desc;
+$('gameMode').value=state.mode;
+if(!['green','blue','purple','red'].includes(state.skin))state.skin='green';
+document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b.dataset.skin===state.skin));
+resetMatch(true);
+updateHud();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
