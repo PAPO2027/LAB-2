@@ -503,18 +503,29 @@ function shoot(){
  state.net.activeShooter=state.mode==='online'?state.net.role:state.turn;
  tell('¡Buen tiro!','good');updateHud();draw();broadcastGameState(true);
 }
+function distanceToSegment(px,py,x1,y1,x2,y2){
+ const dx=x2-x1,dy=y2-y1,len2=dx*dx+dy*dy;
+ if(len2===0)return Math.hypot(px-x1,py-y1);
+ const t=Math.max(0,Math.min(1,((px-x1)*dx+(py-y1)*dy)/len2));
+ return Math.hypot(px-(x1+t*dx),py-(y1+t*dy));
+}
 function updatePhysics(dt){
  const f=Math.pow(.986,dt*60);
  for(const b of state.balls){
   if(!b.onTable)continue;
+  const oldX=b.x,oldY=b.y;
+  const speed=Math.hypot(b.vx,b.vy);
+  if(speed>0.1)b.rot=(Number(b.rot)||0)+(speed*dt/R)*.72;
   b.x+=b.vx*dt;b.y+=b.vy*dt;
   b.vx*=f;b.vy*=f;
   if(Math.abs(b.vx)<2.5)b.vx=0;if(Math.abs(b.vy)<2.5)b.vy=0;
-  // A ball entering a pocket disappears from play.
+  // Swept detection checks the whole frame, so fast balls cannot skip the mouth.
   let pocketed=false;
   for(const p of pockets){
-   if(Math.hypot(b.x-p.x,b.y-p.y)<20&&((b.x<110||b.x>890)||(b.y<108||b.y>452))){
-    b.onTable=false;b.vx=0;b.vy=0;pocketed=true;
+   const closest=distanceToSegment(p.x,p.y,oldX,oldY,b.x,b.y);
+   const nowDistance=Math.hypot(b.x-p.x,b.y-p.y);
+   if(closest<=26||nowDistance<=26){
+    b.x=p.x;b.y=p.y;b.onTable=false;b.vx=0;b.vy=0;pocketed=true;
     if(b.n===0)state.shotFoul=true;
     else{state.shotPocketed.push(b.n);state.potted++;state.coins+=2}
     break;
@@ -540,6 +551,7 @@ function updatePhysics(dt){
    if(rel<0)continue;
    const impulse=-rel*0.96;
    a.vx+=impulse*nx;a.vy+=impulse*ny;b.vx-=impulse*nx;b.vy-=impulse*ny;
+   a.rot=(Number(a.rot)||0)+.12;b.rot=(Number(b.rot)||0)-.12;
    if((a.n===0||b.n===0)&&!state.firstHit)state.firstHit=a.n===0?b.n:a.n;
   }
  }
@@ -548,7 +560,7 @@ function finishShot(){
  state.animating=false;state.aiming=true;
  const pots=state.shotPocketed;
  const scoringPlayer=state.mode==='online'?state.net.activeShooter:state.turn;
- if(state.mode!=='practice'&&pots.length)state.scores[scoringPlayer]+=pots.length;
+ if(pots.length)state.scores[scoringPlayer]+=pots.length;
  if(state.mode==='practice'){
   if(state.shotFoul){restoreCueBall();tell('La blanca cayó en tronera. Se colocó de nuevo para seguir practicando.','warn')}
   else tell(pots.length?'¡Buen tiro! Embocaste '+pots.length+' bola(s).':'Tiro terminado. Prueba con otro ángulo.','good');
