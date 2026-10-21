@@ -641,9 +641,10 @@ function applyRemoteGameState(p){
 function refreshPresence(){
  const ch=state.net.channel;if(!ch||!state.net.connected)return;
  const previousCount=state.net.players.length;
- const players=readPresence(ch);state.net.players=players;
- const me=players.find(p=>p.playerId===state.net.playerId);
- if(me&&Number.isInteger(Number(me.role)))state.net.role=Number(me.role);
+ const players=readPresence(ch).sort((a,b)=>(Number(a.joinedAt)-Number(b.joinedAt))||String(a.playerId).localeCompare(String(b.playerId)));
+ state.net.players=players.map((p,index)=>({...p,role:index<2?index:-1,name:index<2?'Jugador '+(index+1):'Espectador'}));
+ const me=state.net.players.find(p=>p.playerId===state.net.playerId);
+ if(me)state.net.role=Number(me.role);
  if(state.net.role<0||state.net.role>1){
   setNetStatus('Sala llena: ya hay 2 jugadores','error');
  }else{
