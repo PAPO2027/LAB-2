@@ -33,8 +33,8 @@ button{cursor:pointer}
 .score-number{font-size:22px;font-weight:900;color:var(--gold);margin-left:auto;font-variant-numeric:tabular-nums}
 .player-card.right .score-number{margin-left:0;margin-right:auto}
 .vs{color:#77958a;font-size:11px;font-weight:900;letter-spacing:.15em}
-.table-frame{position:relative;border:1px solid #426a54;border-radius:17px;padding:8px;background:linear-gradient(135deg,#8f613b,#d5a26a 18%,#6c4429 33%,#b17b4d 52%,#56351f 72%,#b88150);box-shadow:0 22px 50px #0005,inset 0 1px 0 #fff5}
-.table-inner{border-radius:11px;overflow:hidden;background:#0f5e43;position:relative}
+.table-frame{position:relative;border:1px solid #aeb5b8;border-radius:17px;padding:8px;background:linear-gradient(135deg,#d9dddf,#62696c 15%,#171a1c 27%,#25282a 55%,#0a0c0d 77%,#b5bbbd);box-shadow:0 22px 50px #0007,inset 0 1px 0 #fff8}
+.table-inner{border-radius:11px;overflow:hidden;background:#8e112b;position:relative}
 canvas{display:block;width:100%;height:auto;aspect-ratio:25/14;touch-action:none;outline:none}
 .table-caption{position:absolute;left:18px;top:17px;z-index:2;background:#061712bd;border:1px solid #ffffff20;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:800;letter-spacing:.13em;color:#d5f3e5;pointer-events:none}
 .table-caption span{color:var(--gold)}
@@ -112,11 +112,11 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
     <section class="main-col">
       <div class="scoreboard">
         <div class="player-card active" id="playerCard0">
-          <div class="avatar">P1</div><div style="min-width:0"><div class="player-name" id="name0">Tú</div><div class="player-detail" id="group0">Sin grupo</div></div><div class="score-number" id="score0">0</div>
+          <div class="avatar">P1</div><div style="min-width:0"><div class="player-name" id="name0">Tú</div><div class="player-detail" id="group0">Sin grupo</div></div><div class="score-number" id="score0" title="Bolas embocadas por este jugador">0</div>
         </div>
         <div class="vs">VS</div>
         <div class="player-card right" id="playerCard1">
-          <div class="avatar" id="avatar1">CPU</div><div style="min-width:0"><div class="player-name" id="name1">Rival CPU</div><div class="player-detail" id="group1">Sin grupo</div></div><div class="score-number" id="score1">0</div>
+          <div class="avatar" id="avatar1">CPU</div><div style="min-width:0"><div class="player-name" id="name1">Rival CPU</div><div class="player-detail" id="group1">Sin grupo</div></div><div class="score-number" id="score1" title="Bolas embocadas por este jugador">0</div>
         </div>
       </div>
 
@@ -204,7 +204,7 @@ const ctx=canvas.getContext('2d');
 const W=1000,H=560,R=12;
 const bounds={left:85,right:915,top:82,bottom:478};
 const pockets=[{x:85,y:82},{x:500,y:82},{x:915,y:82},{x:85,y:478},{x:500,y:478},{x:915,y:478}];
-const skinColors={green:['#16865d','#07533d'],blue:['#247da8','#124366'],purple:['#7652a2','#39265f'],red:['#a8444c','#671f2b']};
+const skinColors={green:['#16865d','#07533d'],blue:['#247da8','#124366'],purple:['#7652a2','#39265f'],red:['#ad1734','#760a23']};
 const cues=[
  {id:'wood',name:'Madera clásica',price:0,power:1,aim:1,color:'#d9ad6e',dark:'#774725',desc:'Equilibrio sencillo para aprender.',owned:true},
  {id:'cobalt',name:'Cobalto',price:0,power:1.07,aim:1.03,color:'#57b8ff',dark:'#174d8d',desc:'Un pequeño extra de potencia.',owned:true},
@@ -220,7 +220,7 @@ const state={
  balls:[],angle:0,power:.62,turn:0,scores:[0,0],groups:[null,null],mode:'cpu',
  aiming:true,drag:null,animating:false,gameOver:false,shotPocketed:[],shotFoul:false,firstHit:null,
  coins:saved.coins??120,wins:saved.wins??0,played:saved.played??0,potted:saved.potted??0,
- owned:new Set(saved.owned||['wood','cobalt','carbon']),cueId:saved.cueId||'wood',skin:saved.skin||'green',
+ owned:new Set(saved.owned||['wood','cobalt','carbon']),cueId:saved.cueId||'wood',skin:saved.skin==='green'?'red':(saved.skin||'red'),
  lastTime:0,stillFrames:0,toastTimer:null,shotCount:0,roundAwarded:false
 };
 const SUPABASE_URL='https://ygitfqbuyxbnpwoamlsy.supabase.co';
@@ -316,13 +316,18 @@ function drawTable(){
  const colors=skinColors[state.skin]||skinColors.green;
  const cloth=ctx.createLinearGradient(70,70,930,480);cloth.addColorStop(0,colors[0]);cloth.addColorStop(1,colors[1]);
  ctx.clearRect(0,0,W,H);
- const wood=ctx.createLinearGradient(0,20,1000,550);wood.addColorStop(0,'#d0a16a');wood.addColorStop(.25,'#87532f');wood.addColorStop(.5,'#d4a16a');wood.addColorStop(.73,'#704326');wood.addColorStop(1,'#c08a54');
- ctx.fillStyle='#07110f';roundRect(ctx,20,18,960,524,24);ctx.fill();
- ctx.save();ctx.shadowColor='#0009';ctx.shadowBlur=16;ctx.shadowOffsetY=10;
- ctx.fillStyle=wood;roundRect(ctx,28,24,944,512,23);ctx.fill();ctx.restore();
- ctx.strokeStyle='#f4cc8b80';ctx.lineWidth=2;roundRect(ctx,36,32,928,496,17);ctx.stroke();
- ctx.fillStyle='#211b15';roundRect(ctx,58,53,884,454,17);ctx.fill();
+ const metal=ctx.createLinearGradient(0,20,1000,550);metal.addColorStop(0,'#d6dadb');metal.addColorStop(.12,'#454a4c');metal.addColorStop(.28,'#111415');metal.addColorStop(.52,'#292d2f');metal.addColorStop(.76,'#080a0b');metal.addColorStop(.9,'#5b6062');metal.addColorStop(1,'#c4c9ca');
+ ctx.fillStyle='#080a0b';roundRect(ctx,20,18,960,524,24);ctx.fill();
+ ctx.save();ctx.shadowColor='#000c';ctx.shadowBlur=16;ctx.shadowOffsetY=10;
+ ctx.fillStyle=metal;roundRect(ctx,28,24,944,512,23);ctx.fill();ctx.restore();
+ ctx.strokeStyle='#edf0f180';ctx.lineWidth=2;roundRect(ctx,36,32,928,496,17);ctx.stroke();
+ const rail=ctx.createLinearGradient(65,58,935,502);rail.addColorStop(0,'#242729');rail.addColorStop(.5,'#090b0c');rail.addColorStop(1,'#34383a');
+ ctx.fillStyle=rail;roundRect(ctx,58,53,884,454,17);ctx.fill();
  ctx.fillStyle=cloth;roundRect(ctx,65,59,870,442,12);ctx.fill();
+ const cushion=ctx.createLinearGradient(0,65,0,95);cushion.addColorStop(0,'#c52948');cushion.addColorStop(.32,'#9b1230');cushion.addColorStop(1,'#68091f');
+ ctx.fillStyle=cushion;ctx.fillRect(100,63,800,15);ctx.fillRect(100,482,800,15);
+ const cushionSide=ctx.createLinearGradient(65,0,100,0);cushionSide.addColorStop(0,'#61091c');cushionSide.addColorStop(.4,'#b31b3a');cushionSide.addColorStop(1,'#7e0d26');
+ ctx.fillStyle=cushionSide;ctx.fillRect(65,105,15,350);ctx.fillRect(920,105,15,350);
  // Delicate cloth grain and tournament markings.
  ctx.save();ctx.globalAlpha=.09;ctx.strokeStyle='#dbffe8';ctx.lineWidth=1;
  for(let x=95;x<910;x+=24){ctx.beginPath();ctx.moveTo(x,90);ctx.lineTo(x+12,470);ctx.stroke()}
@@ -508,7 +513,7 @@ function updatePhysics(dt){
   // A ball entering a pocket disappears from play.
   let pocketed=false;
   for(const p of pockets){
-   if(Math.hypot(b.x-p.x,b.y-p.y)<23&&((b.x<110||b.x>890)||(b.y<108||b.y>452)||Math.hypot(b.x-p.x,b.y-p.y)<20)){
+   if(Math.hypot(b.x-p.x,b.y-p.y)<20&&((b.x<110||b.x>890)||(b.y<108||b.y>452))){
     b.onTable=false;b.vx=0;b.vy=0;pocketed=true;
     if(b.n===0)state.shotFoul=true;
     else{state.shotPocketed.push(b.n);state.potted++;state.coins+=2}
@@ -542,36 +547,38 @@ function updatePhysics(dt){
 function finishShot(){
  state.animating=false;state.aiming=true;
  const pots=state.shotPocketed;
+ const scoringPlayer=state.mode==='online'?state.net.activeShooter:state.turn;
+ if(state.mode!=='practice'&&pots.length)state.scores[scoringPlayer]+=pots.length;
  if(state.mode==='practice'){
   if(state.shotFoul){restoreCueBall();tell('La blanca cayó en tronera. Se colocó de nuevo para seguir practicando.','warn')}
   else tell(pots.length?'¡Buen tiro! Embocaste '+pots.length+' bola(s).':'Tiro terminado. Prueba con otro ángulo.','good');
   state.turn=0;updateHud();save();draw();broadcastGameState(true);return;
  }
  if(state.mode==='race'){
-  state.scores[state.turn]+=pots.length;
   if(state.shotFoul)restoreCueBall();
-  if(state.scores[state.turn]>=5){endMatch(state.turn,'¡Carrera ganada!');return}
+  if(state.scores[scoringPlayer]>=5){endMatch(scoringPlayer,'¡Carrera ganada!');return}
   if(pots.length&&!state.shotFoul){tell('¡Sigue tu turno! '+pots.length+' bola(s) embocada(s).','good')}
   else{state.turn=1-state.turn;tell(state.shotFoul?'Falta: la blanca cayó. Cambia el turno.':'Sin bolas embocadas: cambia el turno.',state.shotFoul?'warn':'')}
  }else{
   const eight=pots.includes(8);
-  const playerGroup=state.groups[state.turn];
+  const playerGroup=state.groups[scoringPlayer];
   const foulByHit=state.firstHit!==null&&playerGroup&&groupForBall({n:state.firstHit})!==playerGroup&&state.firstHit!==8;
   const foul=state.shotFoul||foulByHit;
   if(eight){
-   const remaining=remainingFor(state.turn);
-   if(playerGroup&&remaining===0&&!foul){endMatch(state.turn,'¡Victoria brillante!');return}
-   else{endMatch(1-state.turn,'¡La bola 8 decidió la partida!');return}
+   const remaining=remainingFor(scoringPlayer);
+   if(playerGroup&&remaining===0&&!foul){endMatch(scoringPlayer,'¡Victoria brillante!');return}
+   else{endMatch(1-scoringPlayer,'¡La bola 8 decidió la partida!');return}
   }
   if(!state.groups[0]&&!state.groups[1]&&!foul){
    const first=pots.find(n=>n!==8);
-   if(first){const g=groupForBall({n:first});if(g){state.groups[state.turn]=g;state.groups[1-state.turn]=g==='solids'?'stripes':'solids'}}
+   if(first){const g=groupForBall({n:first});if(g){state.groups[scoringPlayer]=g;state.groups[1-scoringPlayer]=g==='solids'?'stripes':'solids'}}
   }
   if(foul){
-   restoreCueBall();state.turn=1-state.turn;state.shotFoul=false;
-   tell('Falta: el rival toma el turno y la blanca vuelve a la mesa.','warn');
-  }else if(pots.length){tell('¡Bola embocada! Conservas el turno.','good')}
-  else{state.turn=1-state.turn;tell('No entró ninguna bola. Turno del rival.','')}
+   restoreCueBall();state.turn=1-scoringPlayer;state.shotFoul=false;
+   tell(pots.length?'Falta. Las bolas embocadas se sumaron al marcador; el rival recibe el turno.':'Falta: el rival toma el turno y la blanca vuelve a la mesa.','warn');
+  }else if(pots.length){
+   tell('¡Embocaste '+pots.length+' bola(s)! +'+pots.length+' al marcador. Conservas el turno.','good');
+  }else{state.turn=1-scoringPlayer;tell('No entró ninguna bola. Turno del rival.','')}
  }
  updateHud();save();draw();broadcastGameState(true);
  if(isCPU()&&state.turn===1&&!state.gameOver){setTimeout(cpuTurn,700)}
@@ -610,7 +617,7 @@ function cpuTurn(){
  state.angle=best?best.angle:Math.atan2(targets[0].y-cueBall.y,targets[0].x-cueBall.x);
  state.power=.51+Math.random()*.17;$('power').value=Math.round(state.power*100);$('powerValue').textContent=Math.round(state.power*100)+'%';
  // The CPU uses its own basic cue so player upgrades are not applied to the rival.
- state.animating=true;state.aiming=false;state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount++;
+ state.animating=true;state.aiming=false;state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount++;state.net.activeShooter=state.turn;
  cueBall.vx=Math.cos(state.angle)*state.power*690;cueBall.vy=Math.sin(state.angle)*state.power*690;
  tell('El rival está jugando…','');updateHud();draw();
 }
@@ -802,7 +809,7 @@ const inviteRoom=new URLSearchParams(window.location.search).get('sala');
 if(inviteRoom){state.mode='online';$('roomCode').value=inviteRoom.toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,12)}
 $('gameMode').value=state.mode;
 $('onlineControls').style.display=state.mode==='online'?'block':'none';
-if(!['green','blue','purple','red'].includes(state.skin))state.skin='green';
+if(!['green','blue','purple','red'].includes(state.skin))state.skin='red';
 document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b.dataset.skin===state.skin));
 resetMatch(true);
 updateHud();
