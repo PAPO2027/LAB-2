@@ -496,8 +496,8 @@ document.querySelectorAll('.skin-btn').forEach(btn=>btn.addEventListener('click'
  state.skin=btn.dataset.skin;document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b===btn));save();draw();broadcastGameState(true);
 }));
 $('helpBtn').addEventListener('click',()=>{
- showToast('Toca la mesa para apuntar; toca cerca de la blanca y arrastra hacia atrás para tirar. Usa la barra para ajustar la fuerza.');
- tell('1) Apunta tocando la mesa. 2) Arrastra desde la blanca hacia atrás o pulsa TIRAR. 3) Desbloquea tacos con monedas.','good');
+ showToast('Haz clic en la mesa para fijar la dirección. Ajusta la potencia y pulsa TIRAR; mover el cursor sin mantener clic no cambia el ángulo.');
+ tell('1) Haz clic en la mesa para fijar la dirección del taco. 2) Ajusta la potencia con la barra lateral. 3) Pulsa TIRAR. Mover el cursor después de soltar el clic no cambia la dirección.','good');
 });
 $('joinRoomBtn').addEventListener('click',()=>connectToRoom());
 $('copyRoomBtn').addEventListener('click',()=>shareRoom());
