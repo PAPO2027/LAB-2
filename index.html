@@ -124,13 +124,13 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
         <div class="table-caption">MESA CLÁSICA <span>•</span> 8 BALL</div>
         <div class="table-inner"><canvas id="table" width="1000" height="560" aria-label="Mesa de billar interactiva" tabindex="0"></canvas></div>
       </div>
-      <div class="table-tip"><span class="dot"></span><span id="turnHint">Tu turno: apunta y prepara el tiro.</span><span style="margin-left:auto">Atajos: <kbd>←</kbd> <kbd>→</kbd> apuntar · <kbd>Espacio</kbd> tirar · <kbd>R</kbd> reiniciar</span></div>
+      <div class="table-tip"><span class="dot"></span><span id="turnHint">Tu turno: apunta y prepara el tiro.</span><span style="margin-left:auto">Atajos: <kbd>←</kbd> <kbd>→</kbd> apuntar · <kbd>T</kbd> tirar · <kbd>R</kbd> reiniciar</span></div>
 
       <div class="control-strip">
-        <div class="shot-status"><strong>APUNTA · AJUSTA · TIRA</strong><br>El taco queda orientado donde apuntaste. Ajusta la potencia en la barra lateral y pulsa TIRAR cuando estés listo.</div>
+        <div class="shot-status"><strong>APUNTA · AJUSTA · TIRA</strong><br>El taco queda orientado donde apuntaste. Ajusta la potencia en la barra lateral y pulsa T o TIRAR cuando estés listo.</div>
         <div class="action-buttons">
           <button class="btn subtle" id="resetBtn" title="Nueva partida">↻ Reiniciar</button>
-          <button class="btn primary" id="shootBtn">TIRAR ↗</button>
+          <button class="btn primary" id="shootBtn">TIRAR (T) ↗</button>
         </div>
       </div>
       <div id="message" class="message" style="margin:12px 4px 0">¡Bienvenido! Selecciona tu taco y rompe el triángulo.</div>
@@ -168,7 +168,7 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
         <div class="side-power-body">
           <input id="power" class="power-vertical" type="range" min="15" max="100" value="62" aria-label="Potencia del tiro" title="Ajusta la potencia sin mover el ángulo">
           <div class="power-scale"><span>FUERTE</span><span>MEDIO</span><span>SUAVE</span></div>
-          <div style="min-width:0;flex:1"><div class="power-readout" id="powerValue">62%</div><div class="power-note">Primero apunta en la mesa. Después mueve esta barra sin cambiar la dirección y pulsa <strong>TIRAR</strong>.</div></div>
+          <div style="min-width:0;flex:1"><div class="power-readout" id="powerValue">62%</div><div class="power-note">Primero apunta en la mesa. Ajusta la potencia y pulsa <strong>T</strong> o <strong>TIRAR</strong> sin cambiar la dirección.</div></div>
         </div>
       </section>
 
@@ -370,35 +370,85 @@ function drawAim(){
  const cueBall=state.balls.find(b=>b.n===0&&b.onTable);
  if(!cueBall||state.gameOver||state.ballInHand)return;
  const cue=currentCue(),dx=Math.cos(state.angle),dy=Math.sin(state.angle);
- // Extend all the way to the cushion; target detection is independent of a fixed guide length.
  const left=bounds.left+R,right=bounds.right-R,top=bounds.top+R,bottom=bounds.bottom-R;
- const tx=dx>1e-6?(right-cueBall.x)/dx:dx< -1e-6?(left-cueBall.x)/dx:Infinity;
- const ty=dy>1e-6?(bottom-cueBall.y)/dy:dy< -1e-6?(top-cueBall.y)/dy:Infinity;
- const rayLength=Math.max(0,Math.min(tx>0?tx:Infinity,ty>0?ty:Infinity));
- const alpha=Math.min(.82,.48+(cue.aim-1)*1.6);
+ const rayLimit=(x,y,vx,vy)=>{
+  const tx=vx>1e-6?(right-x)/vx:vx< -1e-6?(left-x)/vx:Infinity;
+  const ty=vy>1e-6?(bottom-y)/vy:vy< -1e-6?(top-y)/vy:Infinity;
+  return Math.max(0,Math.min(tx>0?tx:Infinity,ty>0?ty:Infinity));
+ };
+ const rayLength=rayLimit(cueBall.x,cueBall.y,dx,dy);
+ const alpha=Math.min(.9,.62+(cue.aim-1)*1.45);
  let nearest=null,contactT=rayLength,ghostX=0,ghostY=0;
+ // Find the first object ball the cue-ball centerline would actually contact.
  state.balls.forEach(b=>{
   if(!b.onTable||b.n===0)return;
-  const rx=b.x-cueBall.x,ry=b.y-cueBall.y,along=rx*dx+ry*dy,side=rx*dy-ry*dx;
+  const rx=b.x-cueBall.x,ry=b.y-cueBall.y;
+  const along=rx*dx+ry*dy,side=rx*dy-ry*dx;
   if(along<=0||Math.abs(side)>=R*2)return;
   const travel=along-Math.sqrt(Math.max(0,(R*2)*(R*2)-side*side));
   if(travel<=0||travel>=contactT)return;
   nearest=b;contactT=travel;ghostX=cueBall.x+dx*travel;ghostY=cueBall.y+dy*travel;
  });
  const endT=nearest?contactT:rayLength;
- ctx.save();ctx.lineWidth=2.2;ctx.setLineDash([8,7]);ctx.strokeStyle='rgba(255,255,245,'+alpha+')';
- ctx.beginPath();ctx.moveTo(cueBall.x+dx*(R+2),cueBall.y+dy*(R+2));ctx.lineTo(cueBall.x+dx*endT,cueBall.y+dy*endT);ctx.stroke();ctx.setLineDash([]);
+ // Dashed white line: cue-ball centerline until its first impact.
+ ctx.save();ctx.lineWidth=2.3;ctx.setLineDash([9,6]);ctx.strokeStyle='rgba(255,255,245,'+alpha+')';
+ ctx.beginPath();ctx.moveTo(cueBall.x+dx*(R+2),cueBall.y+dy*(R+2));ctx.lineTo(cueBall.x+dx*endT,cueBall.y+dy*endT);ctx.stroke();ctx.setLineDash([]);ctx.restore();
  if(nearest){
-  ctx.save();ctx.strokeStyle='#ffe69a';ctx.fillStyle='rgba(255,230,154,.14)';ctx.setLineDash([4,4]);ctx.lineWidth=2;
+  // Amber ghost ball marks the cue-ball center at the exact contact distance.
+  ctx.save();ctx.strokeStyle='#ffe69a';ctx.fillStyle='rgba(255,230,154,.19)';ctx.setLineDash([4,3]);ctx.lineWidth=2.2;
   ctx.beginPath();ctx.arc(ghostX,ghostY,R-1,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);ctx.restore();
+
+  // With an ideal center-to-center collision, the target ball initially travels
+  // along this normal. Trace it to the first rail, pocket, or another ball.
   const vx=nearest.x-ghostX,vy=nearest.y-ghostY,norm=Math.hypot(vx,vy)||1,nx=vx/norm,ny=vy/norm;
-  const endX=nearest.x+nx*165,endY=nearest.y+ny*165;
-  ctx.save();ctx.strokeStyle='#65f1ff';ctx.fillStyle='#65f1ff';ctx.lineWidth=2.8;ctx.setLineDash([7,5]);
-  ctx.beginPath();ctx.moveTo(nearest.x+nx*(R+2),nearest.y+ny*(R+2));ctx.lineTo(endX,endY);ctx.stroke();ctx.setLineDash([]);
-  const a=Math.atan2(endY-nearest.y,endX-nearest.x),head=10;
-  ctx.beginPath();ctx.moveTo(endX,endY);ctx.lineTo(endX-head*Math.cos(a-.48),endY-head*Math.sin(a-.48));ctx.lineTo(endX-head*Math.cos(a+.48),endY-head*Math.sin(a+.48));ctx.closePath();ctx.fill();ctx.restore();
-  ctx.strokeStyle='#b4f9ff';ctx.lineWidth=2.4;ctx.beginPath();ctx.arc(nearest.x,nearest.y,R+3,0,Math.PI*2);ctx.stroke();
+  const boundaryLimit=rayLimit(nearest.x,nearest.y,nx,ny);
+  let objectLimit=boundaryLimit,objectEvent='rail',ballHit=null,pocketHit=null,pocketExitT=0;
+  state.balls.forEach(b=>{
+   if(!b.onTable||b===nearest||b.n===0)return;
+   const rx=b.x-nearest.x,ry=b.y-nearest.y,along=rx*nx+ry*ny;
+   const side2=rx*rx+ry*ry-along*along;
+   if(along<=0||side2>=(R*2)*(R*2))return;
+   const travel=along-Math.sqrt(Math.max(0,(R*2)*(R*2)-side2));
+   if(travel>0&&travel<objectLimit){objectLimit=travel;objectEvent='ball';ballHit=b;pocketHit=null}
+  });
+  pockets.forEach(p=>{
+   const rx=p.x-nearest.x,ry=p.y-nearest.y,along=rx*nx+ry*ny;
+   const side2=rx*rx+ry*ry-along*along,rad=p.captureRadius;
+   if(along<=0||side2>rad*rad)return;
+   const half=Math.sqrt(Math.max(0,rad*rad-side2));
+   const entry=along-half;
+   if(entry>=0&&entry<objectLimit){
+    objectLimit=entry;objectEvent='pocket';pocketHit=p;ballHit=null;pocketExitT=along+half;
+   }
+  });
+  let visualEndT=objectLimit;
+  if(objectEvent==='ball')visualEndT=Math.max(R+1,objectLimit-R);
+  else if(objectEvent==='pocket')visualEndT=Math.min(boundaryLimit,Math.max(objectLimit+2,pocketExitT));
+  const sx=nearest.x+nx*(R+1),sy=nearest.y+ny*(R+1);
+  const ex=nearest.x+nx*visualEndT,ey=nearest.y+ny*visualEndT;
+
+  // Bright cyan full-length line: predicted target-ball path.
+  ctx.save();ctx.strokeStyle='#65f1ff';ctx.fillStyle='#65f1ff';ctx.lineWidth=3;ctx.setLineDash([10,5]);
+  ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.setLineDash([]);
+  const a=Math.atan2(ey-sy,ex-sx),head=12;
+  ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex-head*Math.cos(a-.48),ey-head*Math.sin(a-.48));ctx.lineTo(ex-head*Math.cos(a+.48),ey-head*Math.sin(a+.48));ctx.closePath();ctx.fill();
+  ctx.restore();
+
+  // Outline the target ball being aimed at.
+  ctx.save();ctx.strokeStyle='#b4f9ff';ctx.lineWidth=2.6;ctx.beginPath();ctx.arc(nearest.x,nearest.y,R+3.5,0,Math.PI*2);ctx.stroke();ctx.restore();
+  if(objectEvent==='ball'&&ballHit){
+   ctx.save();ctx.strokeStyle='#ffbd72';ctx.lineWidth=2.6;ctx.beginPath();ctx.arc(ballHit.x,ballHit.y,R+4,0,Math.PI*2);ctx.stroke();
+   const cx=nearest.x+nx*Math.max(0,objectLimit-R);
+   const cy=nearest.y+ny*Math.max(0,objectLimit-R);
+   ctx.fillStyle='#ffbd72';ctx.beginPath();ctx.arc(cx,cy,3.2,0,Math.PI*2);ctx.fill();ctx.restore();
+  }else if(objectEvent==='pocket'&&pocketHit){
+   ctx.save();ctx.strokeStyle='#ffe69a';ctx.lineWidth=2.6;ctx.beginPath();ctx.arc(pocketHit.x,pocketHit.y,pocketHit.captureRadius+3,0,Math.PI*2);ctx.stroke();
+   ctx.fillStyle='#ffe69a';ctx.beginPath();ctx.arc(pocketHit.x,pocketHit.y,2.8,0,Math.PI*2);ctx.fill();ctx.restore();
+  }else{
+   ctx.save();ctx.fillStyle='#65f1ff';ctx.beginPath();ctx.arc(ex,ey,3.2,0,Math.PI*2);ctx.fill();ctx.restore();
+  }
  }
+ // Keep the cue aligned with the locked angle while power is adjusted.
  const pull=8+((state.power-.15)/.85)*31,back=R+17+pull;
  ctx.save();ctx.lineCap='round';ctx.lineWidth=7;ctx.strokeStyle=cue.dark;
  ctx.beginPath();ctx.moveTo(cueBall.x-dx*(back+118),cueBall.y-dy*(back+118));ctx.lineTo(cueBall.x-dx*(back+2),cueBall.y-dy*(back+2));ctx.stroke();
@@ -496,18 +546,23 @@ document.querySelectorAll('.skin-btn').forEach(btn=>btn.addEventListener('click'
  state.skin=btn.dataset.skin;document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b===btn));save();draw();broadcastGameState(true);
 }));
 $('helpBtn').addEventListener('click',()=>{
- showToast('Haz clic en la mesa para fijar la dirección. Ajusta la potencia y pulsa TIRAR; mover el cursor sin mantener clic no cambia el ángulo.');
- tell('1) Haz clic en la mesa para fijar la dirección del taco. 2) Ajusta la potencia con la barra lateral. 3) Pulsa TIRAR. Mover el cursor después de soltar el clic no cambia la dirección.','good');
+ showToast('Guía precisa: blanca a objetivo y línea cian para la trayectoria prevista de la bola objetivo. Ajusta potencia y pulsa T para tirar.');
+ tell('1) Haz clic en la mesa para fijar la dirección. 2) La línea cian muestra la trayectoria prevista de la bola objetivo hasta la siguiente bola, buchaca o banda. 3) Ajusta la potencia y pulsa T o el botón TIRAR.','good');
 });
 $('joinRoomBtn').addEventListener('click',()=>connectToRoom());
 $('copyRoomBtn').addEventListener('click',()=>shareRoom());
 $('roomCode').addEventListener('keydown',e=>{if(e.key==='Enter')connectToRoom()});
 window.addEventListener('keydown',e=>{
- const tag=document.activeElement&&document.activeElement.tagName;
- if(tag==='INPUT'||tag==='SELECT')return;
+ const active=document.activeElement;
+ const tag=active&&active.tagName;
+ if(e.key.toLowerCase()==='t'){
+  if(tag==='INPUT'&&active.type!=='range')return;
+  if(tag==='SELECT'||tag==='TEXTAREA')return;
+  e.preventDefault();shoot();return;
+ }
+ if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA')return;
  if(e.code==='ArrowLeft'){e.preventDefault();state.angle-=.035;draw()}
  if(e.code==='ArrowRight'){e.preventDefault();state.angle+=.035;draw()}
- if(e.code==='Space'){e.preventDefault();shoot()}
  if(e.key.toLowerCase()==='r'){resetMatch(false)}
 });
 function shoot(){
@@ -640,12 +695,9 @@ function finishShot(){
  // Mientras la mesa sigue abierta, no se aplican faltas por no tocar una bola propia:
  // todavía no existe un grupo asignado. La blanca embocada sigue siendo falta.
  let foul=state.shotFoul||(!tableOpen&&state.firstHit===null);
- if(!foul){
-  if(tableOpen&&state.firstHit===8)foul=true;
-  else if(!tableOpen){
-   if(state.firstHit===8){if(remainingFor(scoringPlayer)>0)foul=true}
-   else if(groupForBall({n:state.firstHit})!==state.groups[scoringPlayer])foul=true;
-  }
+ if(!foul&&!tableOpen){
+  if(state.firstHit===8){if(remainingFor(scoringPlayer)>0)foul=true}
+  else if(groupForBall({n:state.firstHit})!==state.groups[scoringPlayer])foul=true;
  }
  // La obligación de embocar o tocar banda después del contacto se aplica solo
  // cuando los grupos ya están asignados; el saque inicial tiene su propia validación.
