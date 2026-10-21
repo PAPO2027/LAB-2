@@ -203,7 +203,7 @@ const canvas=document.getElementById('table');
 const ctx=canvas.getContext('2d');
 const W=1000,H=560,R=12;
 const bounds={left:85,right:915,top:82,bottom:478};
-const pockets=[{x:85,y:82},{x:500,y:82},{x:915,y:82},{x:85,y:478},{x:500,y:478},{x:915,y:478}];
+const pockets=[{x:85,y:82,corner:true,captureRadius:17.8},{x:500,y:82,corner:false,captureRadius:15.2},{x:915,y:82,corner:true,captureRadius:17.8},{x:85,y:478,corner:true,captureRadius:17.8},{x:500,y:478,corner:false,captureRadius:15.2},{x:915,y:478,corner:true,captureRadius:17.8}];
 const skinColors={green:['#16865d','#07533d'],blue:['#247da8','#124366'],purple:['#7652a2','#39265f'],red:['#ad1734','#760a23']};
 const cues=[
  {id:'wood',name:'Madera clásica',price:0,power:1,aim:1,color:'#d9ad6e',dark:'#774725',desc:'Equilibrio sencillo para aprender.',owned:true},
@@ -349,16 +349,19 @@ function drawTable(){
   ctx.save();ctx.translate(953,y);ctx.rotate(Math.PI/4);ctx.fillRect(-3,-3,6,6);ctx.restore();
  }
  pockets.forEach(p=>{
-  ctx.save();ctx.shadowColor='#000d';ctx.shadowBlur=13;ctx.shadowOffsetY=5;
-  const rim=ctx.createRadialGradient(p.x-6,p.y-7,2,p.x,p.y,30);
-  rim.addColorStop(0,'#161b1a');rim.addColorStop(.52,'#090d0c');rim.addColorStop(.77,'#343633');rim.addColorStop(.88,'#8e9694');rim.addColorStop(1,'#292e2c');
-  ctx.fillStyle=rim;ctx.beginPath();ctx.ellipse(p.x,p.y,29,28,0,0,Math.PI*2);ctx.fill();ctx.restore();
-  ctx.strokeStyle='#e4e9e7';ctx.lineWidth=1.2;ctx.beginPath();ctx.ellipse(p.x-1,p.y-1,27,26,0,0,Math.PI*2);ctx.stroke();
-  const throat=ctx.createRadialGradient(p.x-6,p.y-8,1,p.x,p.y,23);
-  throat.addColorStop(0,'#000');throat.addColorStop(.58,'#020302');throat.addColorStop(.78,'#080a09');throat.addColorStop(1,'#111514');
-  ctx.fillStyle=throat;ctx.beginPath();ctx.ellipse(p.x,p.y+1,22,22,0,0,Math.PI*2);ctx.fill();
-  ctx.strokeStyle='#050706';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(p.x,p.y+2,19,19,0,0,Math.PI*2);ctx.stroke();
-  ctx.save();ctx.globalAlpha=.35;ctx.strokeStyle='#727a77';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(p.x-2,p.y-4,17,15,0,Math.PI*1.12,Math.PI*1.9);ctx.stroke();ctx.restore();
+  // Aperture is only a little wider than a ball (diameter 24); corner pockets are slightly larger.
+  const mouth=p.captureRadius;
+  const rimOuter=mouth+4.2;
+  ctx.save();ctx.shadowColor='#000c';ctx.shadowBlur=7;ctx.shadowOffsetY=2;
+  const rim=ctx.createRadialGradient(p.x-4,p.y-5,1,p.x,p.y,rimOuter);
+  rim.addColorStop(0,'#161b1a');rim.addColorStop(.46,'#090d0c');rim.addColorStop(.70,'#34383a');rim.addColorStop(.84,'#aeb5b7');rim.addColorStop(1,'#25292a');
+  ctx.fillStyle=rim;ctx.beginPath();ctx.ellipse(p.x,p.y,rimOuter,rimOuter*.96,0,0,Math.PI*2);ctx.fill();ctx.restore();
+  ctx.strokeStyle='#e4e9e7';ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(p.x,p.y,rimOuter-1,rimOuter*.96-1,0,0,Math.PI*2);ctx.stroke();
+  const throat=ctx.createRadialGradient(p.x-3,p.y-4,1,p.x,p.y,mouth);
+  throat.addColorStop(0,'#000');throat.addColorStop(.62,'#010202');throat.addColorStop(.86,'#050707');throat.addColorStop(1,'#131718');
+  ctx.fillStyle=throat;ctx.beginPath();ctx.ellipse(p.x,p.y+0.5,mouth,mouth*.96,0,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#050706';ctx.lineWidth=1.8;ctx.beginPath();ctx.ellipse(p.x,p.y+1,mouth-1.2,(mouth-1.2)*.94,0,0,Math.PI*2);ctx.stroke();
+  ctx.save();ctx.globalAlpha=.32;ctx.strokeStyle='#727a77';ctx.lineWidth=.8;ctx.beginPath();ctx.ellipse(p.x-1.5,p.y-2.5,mouth-3,(mouth-3)*.85,0,Math.PI*1.12,Math.PI*1.9);ctx.stroke();ctx.restore();
  });
  // Faint center emblem.
  ctx.save();ctx.globalAlpha=.22;ctx.strokeStyle='#d9ffeb';ctx.lineWidth=2;ctx.beginPath();ctx.arc(500,280,35,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(500,280,26,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#e9fff5';ctx.font='bold 21px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('8',500,280);ctx.restore();
@@ -537,7 +540,7 @@ function updatePhysics(dt){
   for(const p of pockets){
    const closest=distanceToSegment(p.x,p.y,oldX,oldY,b.x,b.y);
    const nowDistance=Math.hypot(b.x-p.x,b.y-p.y);
-   if(closest<=26||nowDistance<=26){
+   if(closest<=p.captureRadius||nowDistance<=p.captureRadius){
     b.x=p.x;b.y=p.y;b.onTable=false;b.vx=0;b.vy=0;pocketed=true;
     if(b.n===0)state.shotFoul=true;
     else{state.shotPocketed.push(b.n);state.potted++;state.coins+=2}
