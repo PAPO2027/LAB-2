@@ -573,15 +573,24 @@ function distanceToSegment(px,py,x1,y1,x2,y2){
  const t=Math.max(0,Math.min(1,((px-x1)*dx+(py-y1)*dy)/len2));
  return Math.hypot(px-(x1+t*dx),py-(y1+t*dy));
 }
-// Deja libre la abertura de la buchaca en el límite de la banda.
- // El centro de la bola debe poder cruzar el límite para entrar al hueco.
+// Evita que las bandas reboten una bola que va entrando correctamente a una buchaca.
+ // La abertura visual sigue siendo pequeña; físicamente dejamos pasar solo tiros cuyo
+ // vector de movimiento realmente intersecta el círculo de captura de esa buchaca.
 function isPocketOpening(b,edge){
+ const speed2=b.vx*b.vx+b.vy*b.vy;
+ if(speed2<1)return false;
  return pockets.some(p=>{
-  if(edge==='left')return Math.abs(p.x-bounds.left)<1&&Math.abs(b.y-p.y)<=p.captureRadius;
-  if(edge==='right')return Math.abs(p.x-bounds.right)<1&&Math.abs(b.y-p.y)<=p.captureRadius;
-  if(edge==='top')return Math.abs(p.y-bounds.top)<1&&Math.abs(b.x-p.x)<=p.captureRadius;
-  if(edge==='bottom')return Math.abs(p.y-bounds.bottom)<1&&Math.abs(b.x-p.x)<=p.captureRadius;
-  return false;
+  const onEdge=
+   (edge==='left'&&Math.abs(p.x-bounds.left)<1)||
+   (edge==='right'&&Math.abs(p.x-bounds.right)<1)||
+   (edge==='top'&&Math.abs(p.y-bounds.top)<1)||
+   (edge==='bottom'&&Math.abs(p.y-bounds.bottom)<1);
+  if(!onEdge||Math.hypot(b.x-p.x,b.y-p.y)>p.captureRadius+R+2)return false;
+  const toX=p.x-b.x,toY=p.y-b.y;
+  const t=(toX*b.vx+toY*b.vy)/speed2;
+  if(t<0)return false;
+  const closestX=b.x+b.vx*t,closestY=b.y+b.vy*t;
+  return Math.hypot(closestX-p.x,closestY-p.y)<=p.captureRadius;
  });
 }
 function updatePhysics(dt){
