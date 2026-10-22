@@ -334,10 +334,34 @@ function drawTable(){
  const rail=ctx.createLinearGradient(65,58,935,502);rail.addColorStop(0,'#242729');rail.addColorStop(.5,'#090b0c');rail.addColorStop(1,'#34383a');
  ctx.fillStyle=rail;roundRect(ctx,58,53,884,454,17);ctx.fill();
  ctx.fillStyle=cloth;roundRect(ctx,65,59,870,442,12);ctx.fill();
- const cushion=ctx.createLinearGradient(0,65,0,95);cushion.addColorStop(0,'#c52948');cushion.addColorStop(.32,'#9b1230');cushion.addColorStop(1,'#68091f');
- ctx.fillStyle=cushion;ctx.fillRect(100,63,800,15);ctx.fillRect(100,482,800,15);
- const cushionSide=ctx.createLinearGradient(65,0,100,0);cushionSide.addColorStop(0,'#61091c');cushionSide.addColorStop(.4,'#b31b3a');cushionSide.addColorStop(1,'#7e0d26');
- ctx.fillStyle=cushionSide;ctx.fillRect(65,105,15,350);ctx.fillRect(920,105,15,350);
+ const cushion=ctx.createLinearGradient(0,61,0,82);
+ cushion.addColorStop(0,'#ed7183');cushion.addColorStop(.18,'#c52948');cushion.addColorStop(.58,'#9b1230');cushion.addColorStop(1,'#470714');
+ // Bandas superior e inferior con sombra proyectada para darles volumen.
+ ctx.save();ctx.shadowColor='rgba(0,0,0,.92)';ctx.shadowBlur=11;ctx.shadowOffsetY=4;
+ ctx.fillStyle=cushion;ctx.fillRect(100,63,800,16);
+ ctx.shadowOffsetY=-4;ctx.fillRect(100,481,800,16);
+ ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0;
+ ctx.strokeStyle='#ffb4c0';ctx.lineWidth=1.3;
+ ctx.beginPath();ctx.moveTo(101,77.5);ctx.lineTo(899,77.5);ctx.stroke();
+ ctx.beginPath();ctx.moveTo(101,482);ctx.lineTo(899,482);ctx.stroke();ctx.restore();
+
+ // Bandas laterales en relieve: degradado, sombra exterior y filo iluminado hacia el paño.
+ const cushionSideL=ctx.createLinearGradient(63,0,85,0);
+ cushionSideL.addColorStop(0,'#35040e');cushionSideL.addColorStop(.2,'#6c0a20');
+ cushionSideL.addColorStop(.5,'#b51d3b');cushionSideL.addColorStop(.78,'#ed657b');cushionSideL.addColorStop(1,'#790c25');
+ const cushionSideR=ctx.createLinearGradient(915,0,937,0);
+ cushionSideR.addColorStop(0,'#ed657b');cushionSideR.addColorStop(.22,'#b51d3b');
+ cushionSideR.addColorStop(.52,'#790c25');cushionSideR.addColorStop(.8,'#4e0617');cushionSideR.addColorStop(1,'#2a030b');
+ ctx.save();ctx.shadowColor='rgba(0,0,0,.98)';ctx.shadowBlur=13;ctx.shadowOffsetX=4;
+ ctx.fillStyle=cushionSideL;roundRect(ctx,64,103,19,354,6);ctx.fill();
+ ctx.shadowOffsetX=-4;ctx.fillStyle=cushionSideR;roundRect(ctx,917,103,19,354,6);ctx.fill();
+ ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=0;
+ ctx.strokeStyle='#ff9bac';ctx.lineWidth=1.5;
+ ctx.beginPath();ctx.moveTo(81.5,110);ctx.lineTo(81.5,450);ctx.stroke();
+ ctx.beginPath();ctx.moveTo(918.5,110);ctx.lineTo(918.5,450);ctx.stroke();
+ ctx.strokeStyle='#380411';ctx.lineWidth=1.2;
+ ctx.beginPath();ctx.moveTo(65,110);ctx.lineTo(65,450);ctx.stroke();
+ ctx.beginPath();ctx.moveTo(935,110);ctx.lineTo(935,450);ctx.stroke();ctx.restore();
  // Delicate cloth grain and tournament markings.
  ctx.save();ctx.globalAlpha=.09;ctx.strokeStyle='#dbffe8';ctx.lineWidth=1;
  for(let x=95;x<910;x+=24){ctx.beginPath();ctx.moveTo(x,90);ctx.lineTo(x+12,470);ctx.stroke()}
@@ -588,6 +612,18 @@ window.addEventListener('keydown',e=>{
   if(tag==='INPUT'&&active.type!=='range')return;
   if(tag==='SELECT'||tag==='TEXTAREA')return;
   e.preventDefault();shoot();return;
+ }
+ // Mantener ↑ o ↓ cambia la potencia progresivamente gracias a la repetición del teclado.
+ if(e.code==='ArrowUp'||e.code==='ArrowDown'){
+  if(tag==='INPUT'&&active.type!=='range')return;
+  if(tag==='SELECT'||tag==='TEXTAREA')return;
+  e.preventDefault();
+  const step=e.code==='ArrowUp'?1:-1;
+  const percent=Math.max(15,Math.min(100,Math.round(state.power*100)+step));
+  state.power=percent/100;
+  $('power').value=String(percent);
+  $('powerValue').textContent=percent+'%';
+  draw();return;
  }
  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA')return;
  if(e.code==='ArrowLeft'){e.preventDefault();state.angle-=.035;draw()}
