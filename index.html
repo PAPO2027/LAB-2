@@ -206,7 +206,7 @@ const bounds={left:85,right:915,top:82,bottom:478};
 const pockets=[{x:85,y:82,corner:true,captureRadius:13.5},{x:500,y:82,corner:false,captureRadius:13.5},{x:915,y:82,corner:true,captureRadius:13.5},{x:85,y:478,corner:true,captureRadius:13.5},{x:500,y:478,corner:false,captureRadius:13.5},{x:915,y:478,corner:true,captureRadius:13.5}];
 const skinColors={green:['#16865d','#07533d'],blue:['#247da8','#124366'],purple:['#7652a2','#39265f'],red:['#ad1734','#760a23']};
 const cues=[
- {id:'wood',name:'Madera clásica',price:0,power:1,aim:1,color:'#d9ad6e',dark:'#774725',desc:'Equilibrio sencillo para aprender.',owned:true},
+ {id:'wood',name:'Madera clásica',price:0,power:1.25,aim:1,color:'#d9ad6e',dark:'#774725',desc:'Taco inicial con potencia mejorada.',owned:true},
  {id:'cobalt',name:'Cobalto',price:0,power:1.07,aim:1.03,color:'#57b8ff',dark:'#174d8d',desc:'Un pequeño extra de potencia.',owned:true},
  {id:'carbon',name:'Carbono',price:0,power:1.02,aim:1.13,color:'#aab4b7',dark:'#354146',desc:'Guía más clara para apuntar.',owned:true},
  {id:'phoenix',name:'Fénix',price:180,power:1.16,aim:1.05,color:'#ff9759',dark:'#8d2e24',desc:'Potencia alta para romper el rack.',owned:false},
@@ -262,6 +262,8 @@ function resetBalls(){
 }
 function resetMatch(keepMatchCount){
  state.balls=[];resetBalls();state.angle=0;state.power=Number($('power').value)/100;
+ // Reactivar la puntería y soltar cualquier arrastre que haya quedado al reiniciar.
+ state.aiming=true;state.drag=null;state.lastTime=0;
  state.turn=0;state.scores=[0,0];state.groups=[null,null];state.animating=false;state.gameOver=false;state.winner=null;state.winnerText='';state.net.activeShooter=0;
  state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount=0;state.roundAwarded=false;
  state.breakShot=true;state.ballInHand=false;state.shotRailHit=false;state.shotRailBalls=[];
@@ -418,6 +420,9 @@ function drawAim(){
     const entry=along-Math.sqrt(Math.max(0,rad*rad-side2));
     if(entry>=0&&entry<visualEndT){visualEndT=entry;pocketHit=p}
    });
+   // Vista previa corta: orienta sin dibujar la trayectoria completa.
+   const maxTargetGuide=145;
+   if(visualEndT>maxTargetGuide){visualEndT=maxTargetGuide;pocketHit=null}
    visualEndT=Math.max(R+1,visualEndT);
    const sx=nearest.x+nx*(R+1),sy=nearest.y+ny*(R+1);
    const ex=nearest.x+nx*visualEndT,ey=nearest.y+ny*visualEndT;
@@ -452,27 +457,53 @@ function drawAim(){
 function drawBall(b){
  if(!b.onTable)return;
  const x=b.x,y=b.y,rot=Number(b.rot)||0;
+ let base;
+ if(b.n===0)base='#e5ece8';
+ else if(b.n===8)base='#111316';
+ else if(b.n>=9)base='#f8f3e5'; // Las rayadas tienen base marfil, no una bola totalmente coloreada.
+ else base=solidColor(b.n);
+
+ // Sphere body and highlight.
  ctx.save();ctx.shadowColor='#020706a8';ctx.shadowBlur=5;ctx.shadowOffsetY=2;
  ctx.beginPath();ctx.arc(x,y,R,0,Math.PI*2);
- if(b.n===0){
-  const g=ctx.createRadialGradient(x-4,y-5,1,x,y,R);g.addColorStop(0,'#ffffff');g.addColorStop(1,'#cdd5d0');ctx.fillStyle=g;ctx.fill();
- }else{
-  const base=b.n===8?'#111316':b.n<=7?solidColor(b.n):stripeColor(b.n);
-  const g=ctx.createRadialGradient(x-4,y-5,1,x,y,R);g.addColorStop(0,lighten(base));g.addColorStop(.62,base);g.addColorStop(1,'#101715');ctx.fillStyle=g;ctx.fill();
-  if(b.n>=9){ctx.save();ctx.beginPath();ctx.arc(x,y,R-.4,0,Math.PI*2);ctx.clip();ctx.translate(x,y);ctx.rotate(rot);ctx.fillStyle='#f9f6e8';ctx.fillRect(-R,-5,R*2,10);ctx.restore()}
+ const g=ctx.createRadialGradient(x-4,y-5,1,x,y,R);
+ if(b.n===0){g.addColorStop(0,'#ffffff');g.addColorStop(1,'#cdd5d0')}
+ else{g.addColorStop(0,lighten(base));g.addColorStop(.62,base);g.addColorStop(1,'#101715')}
+ ctx.fillStyle=g;ctx.fill();ctx.restore();
+
+ // Draw an unmistakable wide colored belt for stripes after the base sphere is painted.
+ if(b.n>=9){
+  ctx.save();ctx.beginPath();ctx.arc(x,y,R-.4,0,Math.PI*2);ctx.clip();
+  ctx.translate(x,y);ctx.rotate(rot);
+  ctx.fillStyle=stripeColor(b.n);ctx.fillRect(-R,-7.4,R*2,14.8);
+  ctx.strokeStyle='#fff9e8';ctx.lineWidth=.9;
+  ctx.beginPath();ctx.moveTo(-R,-7.4);ctx.lineTo(R,-7.4);ctx.moveTo(-R,7.4);ctx.lineTo(R,7.4);ctx.stroke();
+  ctx.restore();
  }
- ctx.fill();ctx.restore();
- ctx.strokeStyle='#ffffff9c';ctx.lineWidth=.8;ctx.beginPath();ctx.arc(x,y,R-.4,0,Math.PI*2);ctx.stroke();
- // Rotating surface marks make the roll visible from the top-down camera.
+
+ // Ball outline.
+ ctx.strokeStyle='#ffffffb8';ctx.lineWidth=.9;ctx.beginPath();ctx.arc(x,y,R-.4,0,Math.PI*2);ctx.stroke();
+
+ // Small rotational marks help the rolling motion read clearly.
  ctx.save();ctx.translate(x,y);ctx.rotate(rot);
- if(b.n===0){ctx.fillStyle='#899590';ctx.beginPath();ctx.arc(0,-6.5,2,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#9ca9a2';ctx.lineWidth=1.1;ctx.beginPath();ctx.arc(0,0,7.4,-.55,.85);ctx.stroke()}
- else{ctx.fillStyle=b.n>=9?'#302b22':'#fff5cc';ctx.beginPath();ctx.arc(0,-6.7,2,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff9e9';ctx.beginPath();ctx.arc(0,6.4,1.45,0,Math.PI*2);ctx.fill()}
- ctx.restore();
- if(b.n>0){
-  ctx.save();ctx.translate(x,y);ctx.rotate(rot*.82);ctx.fillStyle='#fffdf1';ctx.beginPath();ctx.arc(0,0,5.2,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#1a2420';ctx.font='bold 7px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(b.n),0,.3);ctx.restore();
+ if(b.n===0){
+  ctx.fillStyle='#899590';ctx.beginPath();ctx.arc(0,-6.5,2,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#9ca9a2';ctx.lineWidth=1.1;ctx.beginPath();ctx.arc(0,0,7.4,-.55,.85);ctx.stroke();
+ }else if(b.n!==8){
+  ctx.fillStyle=b.n>=9?'#302b22':'#fff5cc';
+  ctx.beginPath();ctx.arc(0,-6.7,2,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff9e9';ctx.beginPath();ctx.arc(0,6.4,1.45,0,Math.PI*2);ctx.fill();
  }
  ctx.restore();
+
+ // Number medallion, centered on each object ball.
+ if(b.n>0){
+  ctx.save();ctx.translate(x,y);ctx.rotate(rot*.82);
+  ctx.fillStyle='#fffdf1';ctx.beginPath();ctx.arc(0,0,5.2,0,Math.PI*2);ctx.fill();
+  ctx.strokeStyle='#d3d1c7';ctx.lineWidth=.55;ctx.stroke();
+  ctx.fillStyle='#1a2420';ctx.font='bold 7px Arial';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(b.n),0,.3);
+  ctx.restore();
+ }
 }
 const colors=['','#f7c844','#3384cb','#d94a45','#7558ad','#ef8733','#39a76a','#b94274'];
 function solidColor(n){return colors[n]||'#f5e7cd'}
