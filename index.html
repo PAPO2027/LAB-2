@@ -203,7 +203,7 @@ const canvas=document.getElementById('table');
 const ctx=canvas.getContext('2d');
 const W=1000,H=560,R=12;
 const bounds={left:85,right:915,top:82,bottom:478};
-const pockets=[{x:85,y:82,corner:true,captureRadius:17.8},{x:500,y:82,corner:false,captureRadius:15.2},{x:915,y:82,corner:true,captureRadius:17.8},{x:85,y:478,corner:true,captureRadius:17.8},{x:500,y:478,corner:false,captureRadius:15.2},{x:915,y:478,corner:true,captureRadius:17.8}];
+const pockets=[{x:85,y:82,corner:true,captureRadius:13.5},{x:500,y:82,corner:false,captureRadius:13.5},{x:915,y:82,corner:true,captureRadius:13.5},{x:85,y:478,corner:true,captureRadius:13.5},{x:500,y:478,corner:false,captureRadius:13.5},{x:915,y:478,corner:true,captureRadius:13.5}];
 const skinColors={green:['#16865d','#07533d'],blue:['#247da8','#124366'],purple:['#7652a2','#39265f'],red:['#ad1734','#760a23']};
 const cues=[
  {id:'wood',name:'Madera clásica',price:0,power:1,aim:1,color:'#d9ad6e',dark:'#774725',desc:'Equilibrio sencillo para aprender.',owned:true},
@@ -398,55 +398,29 @@ function drawAim(){
   ctx.save();ctx.strokeStyle='#ffe69a';ctx.fillStyle='rgba(255,230,154,.19)';ctx.setLineDash([4,3]);ctx.lineWidth=2.2;
   ctx.beginPath();ctx.arc(ghostX,ghostY,R-1,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);ctx.restore();
 
-  // With an ideal center-to-center collision, the target ball initially travels
-  // along this normal. Trace it to the first rail, pocket, or another ball.
+  // Línea cian: dirección geométrica prevista de la bola objetivo.
+  // Se ignoran las demás bolas; la guía solo termina al llegar a una buchaca o banda.
   const vx=nearest.x-ghostX,vy=nearest.y-ghostY,norm=Math.hypot(vx,vy)||1,nx=vx/norm,ny=vy/norm;
   const boundaryLimit=rayLimit(nearest.x,nearest.y,nx,ny);
-  let objectLimit=boundaryLimit,objectEvent='rail',ballHit=null,pocketHit=null,pocketExitT=0;
-  state.balls.forEach(b=>{
-   if(!b.onTable||b===nearest||b.n===0)return;
-   const rx=b.x-nearest.x,ry=b.y-nearest.y,along=rx*nx+ry*ny;
-   const side2=rx*rx+ry*ry-along*along;
-   if(along<=0||side2>=(R*2)*(R*2))return;
-   const travel=along-Math.sqrt(Math.max(0,(R*2)*(R*2)-side2));
-   if(travel>0&&travel<objectLimit){objectLimit=travel;objectEvent='ball';ballHit=b;pocketHit=null}
-  });
+  let visualEndT=boundaryLimit,pocketHit=null;
   pockets.forEach(p=>{
    const rx=p.x-nearest.x,ry=p.y-nearest.y,along=rx*nx+ry*ny;
    const side2=rx*rx+ry*ry-along*along,rad=p.captureRadius;
    if(along<=0||side2>rad*rad)return;
-   const half=Math.sqrt(Math.max(0,rad*rad-side2));
-   const entry=along-half;
-   if(entry>=0&&entry<objectLimit){
-    objectLimit=entry;objectEvent='pocket';pocketHit=p;ballHit=null;pocketExitT=along+half;
-   }
+   const entry=along-Math.sqrt(Math.max(0,rad*rad-side2));
+   if(entry>=0&&entry<visualEndT){visualEndT=entry;pocketHit=p}
   });
-  let visualEndT=objectLimit;
-  if(objectEvent==='ball')visualEndT=Math.max(R+1,objectLimit-R);
-  else if(objectEvent==='pocket')visualEndT=Math.min(boundaryLimit,Math.max(objectLimit+2,pocketExitT));
+  visualEndT=Math.max(R+1,visualEndT);
   const sx=nearest.x+nx*(R+1),sy=nearest.y+ny*(R+1);
   const ex=nearest.x+nx*visualEndT,ey=nearest.y+ny*visualEndT;
-
-  // Bright cyan full-length line: predicted target-ball path.
   ctx.save();ctx.strokeStyle='#65f1ff';ctx.fillStyle='#65f1ff';ctx.lineWidth=3;ctx.setLineDash([10,5]);
   ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.setLineDash([]);
   const a=Math.atan2(ey-sy,ex-sx),head=12;
   ctx.beginPath();ctx.moveTo(ex,ey);ctx.lineTo(ex-head*Math.cos(a-.48),ey-head*Math.sin(a-.48));ctx.lineTo(ex-head*Math.cos(a+.48),ey-head*Math.sin(a+.48));ctx.closePath();ctx.fill();
   ctx.restore();
-
-  // Outline the target ball being aimed at.
   ctx.save();ctx.strokeStyle='#b4f9ff';ctx.lineWidth=2.6;ctx.beginPath();ctx.arc(nearest.x,nearest.y,R+3.5,0,Math.PI*2);ctx.stroke();ctx.restore();
-  if(objectEvent==='ball'&&ballHit){
-   ctx.save();ctx.strokeStyle='#ffbd72';ctx.lineWidth=2.6;ctx.beginPath();ctx.arc(ballHit.x,ballHit.y,R+4,0,Math.PI*2);ctx.stroke();
-   const cx=nearest.x+nx*Math.max(0,objectLimit-R);
-   const cy=nearest.y+ny*Math.max(0,objectLimit-R);
-   ctx.fillStyle='#ffbd72';ctx.beginPath();ctx.arc(cx,cy,3.2,0,Math.PI*2);ctx.fill();ctx.restore();
-  }else if(objectEvent==='pocket'&&pocketHit){
-   ctx.save();ctx.strokeStyle='#ffe69a';ctx.lineWidth=2.6;ctx.beginPath();ctx.arc(pocketHit.x,pocketHit.y,pocketHit.captureRadius+3,0,Math.PI*2);ctx.stroke();
-   ctx.fillStyle='#ffe69a';ctx.beginPath();ctx.arc(pocketHit.x,pocketHit.y,2.8,0,Math.PI*2);ctx.fill();ctx.restore();
-  }else{
-   ctx.save();ctx.fillStyle='#65f1ff';ctx.beginPath();ctx.arc(ex,ey,3.2,0,Math.PI*2);ctx.fill();ctx.restore();
-  }
+  if(pocketHit){ctx.save();ctx.strokeStyle='#ffe69a';ctx.lineWidth=2.4;ctx.beginPath();ctx.arc(pocketHit.x,pocketHit.y,pocketHit.captureRadius+2,0,Math.PI*2);ctx.stroke();ctx.restore()}
+  else{ctx.save();ctx.fillStyle='#65f1ff';ctx.beginPath();ctx.arc(ex,ey,3.2,0,Math.PI*2);ctx.fill();ctx.restore()}
  }
  // Keep the cue aligned with the locked angle while power is adjusted.
  const pull=8+((state.power-.15)/.85)*31,back=R+17+pull;
@@ -546,8 +520,8 @@ document.querySelectorAll('.skin-btn').forEach(btn=>btn.addEventListener('click'
  state.skin=btn.dataset.skin;document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b===btn));save();draw();broadcastGameState(true);
 }));
 $('helpBtn').addEventListener('click',()=>{
- showToast('Guía precisa: blanca a objetivo y línea cian para la trayectoria prevista de la bola objetivo. Ajusta potencia y pulsa T para tirar.');
- tell('1) Haz clic en la mesa para fijar la dirección. 2) La línea cian muestra la trayectoria prevista de la bola objetivo hasta la siguiente bola, buchaca o banda. 3) Ajusta la potencia y pulsa T o el botón TIRAR.','good');
+ showToast('Guía precisa: blanca a objetivo y línea cian para la dirección prevista de la bola objetivo. No muestra choques con otras bolas. Ajusta potencia y pulsa T para tirar.');
+ tell('1) Haz clic en la mesa para fijar la dirección. 2) La línea cian muestra la dirección prevista de la bola objetivo hacia la buchaca o banda, sin dibujar choques con otras bolas. 3) Ajusta la potencia y pulsa T o el botón TIRAR.','good');
 });
 $('joinRoomBtn').addEventListener('click',()=>connectToRoom());
 $('copyRoomBtn').addEventListener('click',()=>shareRoom());
