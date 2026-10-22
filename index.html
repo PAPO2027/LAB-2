@@ -961,7 +961,12 @@ function loop(ts){
  const dt=Math.min(.033,(ts-state.lastTime)/1000);state.lastTime=ts;
  if(state.animating){
   if(state.mode!=='online'||state.net.role===state.net.activeShooter){
-   updatePhysics(dt);
+   // Divide el tiempo de cada fotograma en pasos pequeños. Así, a potencia alta,
+   // una bola no puede atravesar otra entre dos actualizaciones y la trayectoria real
+   // sigue mucho más fielmente la guía de apuntado.
+   const physicsSteps=Math.max(1,Math.ceil(dt/(1/240)));
+   const physicsStep=dt/physicsSteps;
+   for(let step=0;step<physicsSteps;step++)updatePhysics(physicsStep);
    if(state.mode==='online')broadcastGameState(false);
    if(!hasMotion()){
     state.stillFrames++;
