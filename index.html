@@ -206,14 +206,14 @@ const bounds={left:85,right:915,top:82,bottom:478};
 const pockets=[{x:85,y:82,corner:true,captureRadius:13.5},{x:500,y:82,corner:false,captureRadius:13.5},{x:915,y:82,corner:true,captureRadius:13.5},{x:85,y:478,corner:true,captureRadius:13.5},{x:500,y:478,corner:false,captureRadius:13.5},{x:915,y:478,corner:true,captureRadius:13.5}];
 const skinColors={green:['#16865d','#07533d'],blue:['#247da8','#124366'],purple:['#7652a2','#39265f'],red:['#ad1734','#760a23']};
 const cues=[
- {id:'wood',name:'Madera clásica',price:0,power:1.25,aim:1,color:'#d9ad6e',dark:'#774725',desc:'Taco inicial con potencia mejorada.',owned:true},
- {id:'cobalt',name:'Cobalto',price:0,power:1.07,aim:1.03,color:'#57b8ff',dark:'#174d8d',desc:'Un pequeño extra de potencia.',owned:true},
- {id:'carbon',name:'Carbono',price:0,power:1.02,aim:1.13,color:'#aab4b7',dark:'#354146',desc:'Guía más clara para apuntar.',owned:true},
- {id:'phoenix',name:'Fénix',price:180,power:1.16,aim:1.05,color:'#ff9759',dark:'#8d2e24',desc:'Potencia alta para romper el rack.',owned:false},
- {id:'emerald',name:'Esmeralda',price:260,power:1.08,aim:1.2,color:'#6df0a5',dark:'#126448',desc:'Control fino y línea de ayuda.',owned:false},
- {id:'neon',name:'Neón',price:350,power:1.22,aim:1.1,color:'#e68cff',dark:'#612986',desc:'Golpes contundentes con estilo.',owned:false},
- {id:'solar',name:'Solar',price:470,power:1.17,aim:1.26,color:'#ffd767',dark:'#a45514',desc:'Mucha precisión y buena potencia.',owned:false},
- {id:'prism',name:'Prisma',price:620,power:1.3,aim:1.3,color:'#76ffe6',dark:'#265e78',desc:'El taco de colección más completo.',owned:false}
+ {id:'wood',name:'Madera clásica',price:0,power:1.25,aim:35,color:'#d9ad6e',dark:'#774725',desc:'Taco inicial, simple y equilibrado.',owned:true},
+ {id:'cobalt',name:'Cobalto',price:0,power:1.07,aim:45,color:'#57b8ff',dark:'#174d8d',desc:'Mejor guía para apuntar.',owned:true},
+ {id:'carbon',name:'Carbono',price:0,power:1.02,aim:55,color:'#aab4b7',dark:'#354146',desc:'Guía más clara para tiros controlados.',owned:true},
+ {id:'phoenix',name:'Fénix',price:180,power:1.16,aim:65,color:'#ff9759',dark:'#8d2e24',desc:'Más potencia y mejor asistencia al apuntar.',owned:false},
+ {id:'emerald',name:'Esmeralda',price:260,power:1.08,aim:75,color:'#6df0a5',dark:'#126448',desc:'Control fino y guía más visible.',owned:false},
+ {id:'neon',name:'Neón',price:350,power:1.22,aim:85,color:'#e68cff',dark:'#612986',desc:'Alta precisión para tiros difíciles.',owned:false},
+ {id:'solar',name:'Solar',price:470,power:1.17,aim:95,color:'#ffd767',dark:'#a45514',desc:'Guía nítida para dirigir tus tiros.',owned:false},
+ {id:'prism',name:'Prisma',price:620,power:1.3,aim:100,color:'#76ffe6',dark:'#265e78',desc:'El taco de colección con máxima precisión.',owned:false}
 ];
 const saved=readSave();
 const state={
@@ -302,7 +302,7 @@ function renderCues(){
   row.type='button';
   row.setAttribute('aria-label',owned?'Equipar taco '+c.name:'Desbloquear taco '+c.name+' por '+c.price+' monedas');
   const lock=owned?'EQUIPADO':'BLOQUEADO';
-  row.innerHTML='<div class="cue-preview"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M7 29 L28 7" stroke="'+c.dark+'" stroke-width="5.8" stroke-linecap="round"/><path d="M7 29 L28 7" stroke="'+c.color+'" stroke-width="3.2" stroke-linecap="round"/><path d="M5.2 30.8 L8.7 27.3" stroke="#f4e8cf" stroke-width="2.2" stroke-linecap="round"/><path d="M24 11 L27 8" stroke="#ffffff99" stroke-width="1"/></svg></div><div class="cue-text"><div class="cue-title">'+c.name+' '+(chosen?'<span class="tag">Activo</span>':owned?'<span class="tag">Propio</span>':'<span class="tag locked">Nuevo</span>')+'</div><div class="cue-sub">'+c.desc+'</div><div class="cue-stat">Potencia '+Math.round(c.power*100)+' · Precisión '+Math.round(c.aim*100)+'</div></div><span class="cue-price">'+(owned?(chosen?'✓':'Equipar'):'🪙 '+c.price)+'</span>';
+  row.innerHTML='<div class="cue-preview"><svg viewBox="0 0 36 36" aria-hidden="true"><path d="M7 29 L28 7" stroke="'+c.dark+'" stroke-width="5.8" stroke-linecap="round"/><path d="M7 29 L28 7" stroke="'+c.color+'" stroke-width="3.2" stroke-linecap="round"/><path d="M5.2 30.8 L8.7 27.3" stroke="#f4e8cf" stroke-width="2.2" stroke-linecap="round"/><path d="M24 11 L27 8" stroke="#ffffff99" stroke-width="1"/></svg></div><div class="cue-text"><div class="cue-title">'+c.name+' '+(chosen?'<span class="tag">Activo</span>':owned?'<span class="tag">Propio</span>':'<span class="tag locked">Nuevo</span>')+'</div><div class="cue-sub">'+c.desc+'</div><div class="cue-stat">Potencia '+Math.round(c.power*100)+' · Precisión '+Math.round(c.aim)+'</div></div><span class="cue-price">'+(owned?(chosen?'✓':'Equipar'):'🪙 '+c.price)+'</span>';
   row.addEventListener('click',()=>{
    if(owned){state.cueId=c.id;save();renderCues();$('cueInfo').textContent=c.name+': '+c.desc;showToast('Taco equipado: '+c.name);draw()}
    else if(state.coins>=c.price){
@@ -325,6 +325,12 @@ function drawTable(){
  ctx.save();ctx.shadowColor='#000c';ctx.shadowBlur=16;ctx.shadowOffsetY=10;
  ctx.fillStyle=metal;roundRect(ctx,28,24,944,512,23);ctx.fill();ctx.restore();
  ctx.strokeStyle='#edf0f180';ctx.lineWidth=2;roundRect(ctx,36,32,928,496,17);ctx.stroke();
+ // Borde exterior de madera cálida, con un contorno luminoso para separarlo de la placa metálica.
+ const outerTrim=ctx.createLinearGradient(42,36,958,520);
+ outerTrim.addColorStop(0,'#f0c47f');outerTrim.addColorStop(.12,'#865126');outerTrim.addColorStop(.28,'#4f2814');
+ outerTrim.addColorStop(.46,'#c18a49');outerTrim.addColorStop(.68,'#633416');outerTrim.addColorStop(.86,'#a66c32');outerTrim.addColorStop(1,'#f4d08b');
+ ctx.fillStyle=outerTrim;roundRect(ctx,47,42,906,476,22);ctx.fill();
+ ctx.strokeStyle='#ffe3a5';ctx.lineWidth=2;roundRect(ctx,48,43,904,474,21);ctx.stroke();
  const rail=ctx.createLinearGradient(65,58,935,502);rail.addColorStop(0,'#242729');rail.addColorStop(.5,'#090b0c');rail.addColorStop(1,'#34383a');
  ctx.fillStyle=rail;roundRect(ctx,58,53,884,454,17);ctx.fill();
  ctx.fillStyle=cloth;roundRect(ctx,65,59,870,442,12);ctx.fill();
@@ -379,7 +385,7 @@ function drawAim(){
   return Math.max(0,Math.min(tx>0?tx:Infinity,ty>0?ty:Infinity));
  };
  const rayLength=rayLimit(cueBall.x,cueBall.y,dx,dy);
- const alpha=Math.min(.9,.62+(cue.aim-1)*1.45);
+ const alpha=Math.min(.9,.45+(cue.aim/100)*.45);
  let nearest=null,contactT=rayLength,ghostX=0,ghostY=0;
  // Busca la primera bola que tocaría la trayectoria del centro de la blanca.
  state.balls.forEach(b=>{
