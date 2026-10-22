@@ -573,6 +573,17 @@ function distanceToSegment(px,py,x1,y1,x2,y2){
  const t=Math.max(0,Math.min(1,((px-x1)*dx+(py-y1)*dy)/len2));
  return Math.hypot(px-(x1+t*dx),py-(y1+t*dy));
 }
+// Deja libre la abertura de la buchaca en el límite de la banda.
+ // El centro de la bola debe poder cruzar el límite para entrar al hueco.
+function isPocketOpening(b,edge){
+ return pockets.some(p=>{
+  if(edge==='left')return Math.abs(p.x-bounds.left)<1&&Math.abs(b.y-p.y)<=p.captureRadius;
+  if(edge==='right')return Math.abs(p.x-bounds.right)<1&&Math.abs(b.y-p.y)<=p.captureRadius;
+  if(edge==='top')return Math.abs(p.y-bounds.top)<1&&Math.abs(b.x-p.x)<=p.captureRadius;
+  if(edge==='bottom')return Math.abs(p.y-bounds.bottom)<1&&Math.abs(b.x-p.x)<=p.captureRadius;
+  return false;
+ });
+}
 function updatePhysics(dt){
  const f=Math.pow(.986,dt*60);
  for(const b of state.balls){
@@ -596,10 +607,10 @@ function updatePhysics(dt){
    }
   }
   if(pocketed)continue;
-  if(b.x<bounds.left+R){b.x=bounds.left+R;b.vx=Math.abs(b.vx)*.88;if(state.firstHit!==null){state.shotRailHit=true;if(!state.shotRailBalls.includes(b.n))state.shotRailBalls.push(b.n)}}
-  if(b.x>bounds.right-R){b.x=bounds.right-R;b.vx=-Math.abs(b.vx)*.88;if(state.firstHit!==null){state.shotRailHit=true;if(!state.shotRailBalls.includes(b.n))state.shotRailBalls.push(b.n)}}
-  if(b.y<bounds.top+R){b.y=bounds.top+R;b.vy=Math.abs(b.vy)*.88;if(state.firstHit!==null){state.shotRailHit=true;if(!state.shotRailBalls.includes(b.n))state.shotRailBalls.push(b.n)}}
-  if(b.y>bounds.bottom-R){b.y=bounds.bottom-R;b.vy=-Math.abs(b.vy)*.88;if(state.firstHit!==null){state.shotRailHit=true;if(!state.shotRailBalls.includes(b.n))state.shotRailBalls.push(b.n)}}
+  if(b.x<bounds.left+R&&!isPocketOpening(b,'left')){b.x=bounds.left+R;b.vx=Math.abs(b.vx)*.88;if(state.firstHit!==null){state.shotRailHit=true;if(!state.shotRailBalls.includes(b.n))state.shotRailBalls.push(b.n)}}
+  if(b.x>bounds.right-R&&!isPocketOpening(b,'right')){b.x=bounds.right-R;b.vx=-Math.abs(b.vx)*.88;if(state.firstHit!==null){state.shotRailHit=true;if(!state.shotRailBalls.includes(b.n))state.shotRailBalls.push(b.n)}}
+  if(b.y<bounds.top+R&&!isPocketOpening(b,'top')){b.y=bounds.top+R;b.vy=Math.abs(b.vy)*.88;if(state.firstHit!==null){state.shotRailHit=true;if(!state.shotRailBalls.includes(b.n))state.shotRailBalls.push(b.n)}}
+  if(b.y>bounds.bottom-R&&!isPocketOpening(b,'bottom')){b.y=bounds.bottom-R;b.vy=-Math.abs(b.vy)*.88;if(state.firstHit!==null){state.shotRailHit=true;if(!state.shotRailBalls.includes(b.n))state.shotRailBalls.push(b.n)}}
  }
  // Equal-mass ball collisions with overlap correction.
  for(let i=0;i<state.balls.length;i++){
