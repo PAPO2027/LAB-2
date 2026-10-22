@@ -222,7 +222,7 @@ const state={
  breakShot:true,ballInHand:false,shotRailHit:false,shotRailBalls:[],
  coins:saved.coins??120,wins:saved.wins??0,played:saved.played??0,potted:saved.potted??0,
  owned:new Set(saved.owned||['wood','cobalt','carbon']),cueId:saved.cueId||'wood',skin:saved.skin==='green'?'red':(saved.skin||'red'),
- lastTime:0,stillFrames:0,toastTimer:null,shotCount:0,roundAwarded:false
+ lastTime:0,stillFrames:0,shotElapsed:0,toastTimer:null,shotCount:0,roundAwarded:false
 };
 const SUPABASE_URL='https://ygitfqbuyxbnpwoamlsy.supabase.co';
 const SUPABASE_KEY='sb_publishable_WgNHhhK7dS5yP32ZOn3q1g_fZ5mIyVu';
@@ -263,7 +263,7 @@ function resetBalls(){
 function resetMatch(keepMatchCount){
  state.balls=[];resetBalls();state.angle=0;state.power=Number($('power').value)/100;
  // Reactivar la puntería y soltar cualquier arrastre que haya quedado al reiniciar.
- state.aiming=true;state.drag=null;state.lastTime=0;
+ state.aiming=true;state.drag=null;state.lastTime=0;state.shotElapsed=0;
  state.turn=0;state.scores=[0,0];state.groups=[null,null];state.animating=false;state.gameOver=false;state.winner=null;state.winnerText='';state.net.activeShooter=0;
  state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount=0;state.roundAwarded=false;
  state.breakShot=true;state.ballInHand=false;state.shotRailHit=false;state.shotRailBalls=[];
@@ -634,7 +634,7 @@ function shoot(){
  if(!canControlTurn()||state.animating||state.gameOver||state.ballInHand)return;
  const cue=state.balls.find(b=>b.n===0&&b.onTable);
  if(!cue){tell('No se ve la bola blanca. Reinicia la mesa.','warn');return}
- state.animating=true;state.aiming=false;state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount++;state.shotRailHit=false;state.shotRailBalls=[];
+ state.animating=true;state.aiming=false;state.shotElapsed=0;state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount++;state.shotRailHit=false;state.shotRailBalls=[];
  const c=currentCue();const velocity=state.power*1030*c.power;
  cue.vx=Math.cos(state.angle)*velocity;cue.vy=Math.sin(state.angle)*velocity;
  state.net.activeShooter=state.mode==='online'?state.net.role:state.turn;
@@ -722,7 +722,8 @@ function spotEightBall(){
  state.shotPocketed=state.shotPocketed.filter(n=>n!==8);
 }
 function finishShot(){
- state.animating=false;state.aiming=true;
+ // Nunca dejar el juego en un estado de animación sin control.
+ state.animating=false;state.aiming=true;state.shotElapsed=0;state.stillFrames=0;
  let pots=state.shotPocketed.slice();
  const scoringPlayer=state.mode==='online'?state.net.activeShooter:state.turn;
  const eightBallMode=['cpu','local','online'].includes(state.mode);
@@ -857,7 +858,7 @@ function cpuTurn(){
  state.angle=best?best.angle:Math.atan2(targets[0].y-cueBall.y,targets[0].x-cueBall.x);
  state.power=.51+Math.random()*.17;$('power').value=Math.round(state.power*100);$('powerValue').textContent=Math.round(state.power*100)+'%';
  // The CPU uses its own basic cue so player upgrades are not applied to the rival.
- state.animating=true;state.aiming=false;state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount++;state.shotRailHit=false;state.shotRailBalls=[];state.net.activeShooter=state.turn;
+ state.animating=true;state.aiming=false;state.shotElapsed=0;state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount++;state.shotRailHit=false;state.shotRailBalls=[];state.net.activeShooter=state.turn;
  cueBall.vx=Math.cos(state.angle)*state.power*690;cueBall.vy=Math.sin(state.angle)*state.power*690;
  tell('El rival está jugando…','');updateHud();draw();
 }
@@ -1034,9 +1035,8 @@ function loop(ts){
  const dt=Math.min(.033,(ts-state.lastTime)/1000);state.lastTime=ts;
  if(state.animating){
   if(state.mode!=='online'||state.net.role===state.net.activeShooter){
-   // Divide el tiempo de cada fotograma en pasos pequeños. Así, a potencia alta,
-   // una bola no puede atravesar otra entre dos actualizaciones y la trayectoria real
-   // sigue mucho más fielmente la guía de apuntado.
+   // Divide el tiempo de cada fotograma en pasos pequeños para mantener precisa la física.
+   state.shotElapsed+=dt;
    const physicsSteps=Math.max(1,Math.ceil(dt/(1/240)));
    const physicsStep=dt/physicsSteps;
    for(let step=0;step<physicsSteps;step++)updatePhysics(physicsStep);
@@ -1044,7 +1044,16 @@ function loop(ts){
    if(!hasMotion()){
     state.stillFrames++;
     if(state.stillFrames>10){finishShot()}
-   }else state.stillFrames=0;
+   }else{
+    state.stillFrames=0;
+    // Seguro contra bolas vibrando o colisiones que impidan terminar el tiro.
+    // Un tiro normal acaba mucho antes; a los 12 segundos asentamos las bolas.
+    if(state.shotElapsed>12){
+     state.balls.forEach(b=>{if(b.onTable){b.vx=0;b.vy=0}});
+     state.stillFrames=0;
+     finishShot();
+    }
+   }
   }
  }
  draw();
