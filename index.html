@@ -30,6 +30,13 @@ button{cursor:pointer}
 .player-card.right .avatar{background:#4c3b29;color:#ffe0a0}
 .player-name{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .player-detail{font-size:11px;color:var(--muted);margin-top:3px}
+.turn-clock{margin-top:6px;width:100%;min-width:0}
+.turn-clock-head{display:flex;align-items:center;justify-content:space-between;gap:5px;font-size:9px;line-height:1.2;color:#89a99b;letter-spacing:.06em}
+.turn-clock-head strong{font-size:10px;color:#dcebe3;font-variant-numeric:tabular-nums;letter-spacing:0}
+.turn-clock-track{height:5px;margin-top:4px;background:#06120f;border:1px solid #416357;border-radius:999px;overflow:hidden;box-shadow:inset 0 1px 2px #0008}
+.turn-clock-fill{display:block;width:100%;height:100%;border-radius:inherit;background:linear-gradient(90deg,#39d49a,#a2f3c9);transition:width .08s linear,background .15s}
+.turn-clock-fill.urgent{background:linear-gradient(90deg,#ff455f,#ffad55)}
+.turn-clock.hidden{display:none}
 .score-number{font-size:22px;font-weight:900;color:var(--gold);margin-left:auto;font-variant-numeric:tabular-nums}
 .player-card.right .score-number{margin-left:0;margin-right:auto}
 .vs{color:#77958a;font-size:11px;font-weight:900;letter-spacing:.15em}
@@ -116,11 +123,15 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
     <section class="main-col">
       <div class="scoreboard">
         <div class="player-card active" id="playerCard0">
-          <div class="avatar">P1</div><div style="min-width:0"><div class="player-name" id="name0">Tú</div><div class="player-detail" id="group0">Sin grupo</div></div><div class="score-number" id="score0" title="Bolas embocadas por este jugador">0</div>
+          <div class="avatar">P1</div><div class="player-info" style="min-width:0;flex:1"><div class="player-name" id="name0">Tú</div><div class="player-detail" id="group0">Sin grupo</div>
+            <div class="turn-clock" id="turnClock0"><div class="turn-clock-head"><span>TIEMPO</span><strong id="turnClockLabel0">45 s</strong></div><div class="turn-clock-track"><span class="turn-clock-fill" id="turnClockFill0"></span></div></div>
+          </div><div class="score-number" id="score0" title="Bolas embocadas por este jugador">0</div>
         </div>
         <div class="vs">VS</div>
         <div class="player-card right" id="playerCard1">
-          <div class="avatar" id="avatar1">CPU</div><div style="min-width:0"><div class="player-name" id="name1">Rival CPU</div><div class="player-detail" id="group1">Sin grupo</div></div><div class="score-number" id="score1" title="Bolas embocadas por este jugador">0</div>
+          <div class="avatar" id="avatar1">CPU</div><div class="player-info" style="min-width:0;flex:1"><div class="player-name" id="name1">Rival CPU</div><div class="player-detail" id="group1">Sin grupo</div>
+            <div class="turn-clock" id="turnClock1"><div class="turn-clock-head"><span>TIEMPO</span><strong id="turnClockLabel1">45 s</strong></div><div class="turn-clock-track"><span class="turn-clock-fill" id="turnClockFill1"></span></div></div>
+          </div><div class="score-number" id="score1" title="Bolas embocadas por este jugador">0</div>
         </div>
       </div>
 
@@ -217,6 +228,7 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
 const canvas=document.getElementById('table');
 const ctx=canvas.getContext('2d');
 const W=1000,H=560,R=12;
+const TURN_DURATION_MS=45000;
 const bounds={left:85,right:915,top:82,bottom:478};
 const pockets=[{x:85,y:82,corner:true,captureRadius:15.5},{x:500,y:82,corner:false,captureRadius:13.5},{x:915,y:82,corner:true,captureRadius:15.5},{x:85,y:478,corner:true,captureRadius:15.5},{x:500,y:478,corner:false,captureRadius:13.5},{x:915,y:478,corner:true,captureRadius:15.5}];
 const skinColors={green:['#16865d','#07533d'],blue:['#247da8','#124366'],purple:['#7652a2','#39265f'],red:['#ad1734','#760a23']};
@@ -238,7 +250,7 @@ const state={
  coins:saved.coins??120,wins:saved.wins??0,played:saved.played??0,potted:saved.potted??0,
  userName:saved.userName||'',localPlayer2Name:saved.localPlayer2Name||'',
  owned:new Set(saved.owned||['wood','cobalt','carbon']),cueId:saved.cueId||'wood',skin:saved.skin==='green'?'red':(saved.skin||'red'),
- lastTime:0,stillFrames:0,shotElapsed:0,toastTimer:null,shotCount:0,roundAwarded:false
+ lastTime:0,stillFrames:0,shotElapsed:0,turnStartedAt:Date.now(),turnTimerTurn:0,toastTimer:null,shotCount:0,roundAwarded:false
 };
 const SUPABASE_URL='https://ygitfqbuyxbnpwoamlsy.supabase.co';
 const SUPABASE_KEY='sb_publishable_WgNHhhK7dS5yP32ZOn3q1g_fZ5mIyVu';
@@ -310,7 +322,7 @@ function resetMatch(keepMatchCount){
  state.balls=[];resetBalls();state.angle=0;state.power=Number($('power').value)/100;
  // Reactivar la puntería y soltar cualquier arrastre que haya quedado al reiniciar.
  state.aiming=true;state.drag=null;state.lastTime=0;state.shotElapsed=0;
- state.turn=0;state.scores=[0,0];state.groups=[null,null];state.animating=false;state.gameOver=false;state.winner=null;state.winnerText='';state.net.activeShooter=0;
+ state.turn=0;state.turnStartedAt=Date.now();state.turnTimerTurn=0;state.scores=[0,0];state.groups=[null,null];state.animating=false;state.gameOver=false;state.winner=null;state.winnerText='';state.net.activeShooter=0;
  state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount=0;state.roundAwarded=false;
  state.breakShot=true;state.ballInHand=false;state.shotRailHit=false;state.shotRailBalls=[];
  if(!keepMatchCount){state.played++;save()}
@@ -321,6 +333,50 @@ function remainingFor(player){
  const g=state.groups[player];
  if(!g)return state.balls.filter(b=>b.onTable&&b.n!==0&&b.n!==8).length;
  return state.balls.filter(b=>b.onTable&&groupForBall(b)===g).length;
+}
+function resetTurnClock(){
+ state.turnTimerTurn=state.turn;
+ state.turnStartedAt=Date.now();
+}
+function turnClockAvailable(){
+ return !state.gameOver&&state.mode!=='practice'&&(state.mode!=='online'||(state.net.connected&&state.net.role>=0&&state.net.role<=1));
+}
+function turnClockRemaining(){
+ if(state.turnTimerTurn!==state.turn)resetTurnClock();
+ if(!turnClockAvailable()||state.animating)return TURN_DURATION_MS;
+ return Math.max(0,TURN_DURATION_MS-(Date.now()-state.turnStartedAt));
+}
+function updateTurnClockUI(){
+ const available=turnClockAvailable();
+ const currentRemaining=turnClockRemaining();
+ for(let i=0;i<2;i++){
+  const clock=$('turnClock'+i),label=$('turnClockLabel'+i),fill=$('turnClockFill'+i);
+  if(!clock||!label||!fill)continue;
+  clock.classList.toggle('hidden',!available);
+  const isCurrent=available&&i===state.turn&&!state.animating;
+  const remaining=isCurrent?currentRemaining:TURN_DURATION_MS;
+  const seconds=Math.ceil(remaining/1000);
+  const pct=Math.max(0,Math.min(100,remaining/TURN_DURATION_MS*100));
+  label.textContent=seconds+' s';
+  fill.style.width=pct+'%';
+  fill.classList.toggle('urgent',isCurrent&&remaining<=10000);
+  clock.setAttribute('aria-label',isCurrent?'Tiempo restante del turno: '+seconds+' segundos':'Temporizador de turno');
+  fill.setAttribute('aria-valuenow',String(seconds));
+ }
+}
+function tickTurnClock(){
+ if(state.turnTimerTurn!==state.turn)resetTurnClock();
+ updateTurnClockUI();
+ if(!turnClockAvailable()||state.animating||turnClockRemaining()>0)return;
+ // Solo el jugador cuyo turno está activo puede vencer el reloj online.
+ if(state.mode==='online'&&state.net.role!==state.turn)return;
+ const expired=state.turn;
+ state.turn=1-expired;
+ resetTurnClock();
+ tell('Se acabó el tiempo. El turno pasa al siguiente jugador.','warn');
+ updateHud(true);draw();
+ if(state.mode==='online')broadcastGameState(true);
+ if(isCPU()&&state.turn===1&&!state.gameOver)setTimeout(cpuTurn,250);
 }
 function updateHud(skipCues){
  $('score0').textContent=state.scores[0];$('score1').textContent=state.scores[1];
@@ -784,6 +840,7 @@ function spotEightBall(){
 function finishShot(){
  // Nunca dejar el juego en un estado de animación sin control.
  state.animating=false;state.aiming=true;state.shotElapsed=0;state.stillFrames=0;
+ resetTurnClock();
  let pots=state.shotPocketed.slice();
  const scoringPlayer=state.mode==='online'?state.net.activeShooter:state.turn;
  const eightBallMode=['cpu','local','online'].includes(state.mode);
@@ -937,7 +994,7 @@ function sendRoomEvent(event,payload){
  try{const result=state.net.channel.send({type:'broadcast',event:event,payload:payload});if(result&&typeof result.catch==='function')result.catch(()=>{})}catch(e){}
 }
 function gameSnapshot(){
- return {room:state.net.room,authorRole:state.net.role,balls:state.balls.map(b=>({n:b.n,x:b.x,y:b.y,vx:b.vx,vy:b.vy,rot:b.rot,onTable:b.onTable})),angle:state.angle,power:state.power,turn:state.turn,scores:state.scores.slice(),groups:state.groups.slice(),animating:state.animating,gameOver:state.gameOver,winner:state.winner,winnerText:state.winnerText||'',skin:state.skin,breakShot:state.breakShot,ballInHand:state.ballInHand,shotFoul:state.shotFoul,firstHit:state.firstHit,shotPocketed:state.shotPocketed.slice(),shotRailHit:state.shotRailHit,shotRailBalls:state.shotRailBalls.slice()};
+ return {room:state.net.room,authorRole:state.net.role,turnStartedAt:state.turnStartedAt,turnTimerTurn:state.turnTimerTurn,balls:state.balls.map(b=>({n:b.n,x:b.x,y:b.y,vx:b.vx,vy:b.vy,rot:b.rot,onTable:b.onTable})),angle:state.angle,power:state.power,turn:state.turn,scores:state.scores.slice(),groups:state.groups.slice(),animating:state.animating,gameOver:state.gameOver,winner:state.winner,winnerText:state.winnerText||'',skin:state.skin,breakShot:state.breakShot,ballInHand:state.ballInHand,shotFoul:state.shotFoul,firstHit:state.firstHit,shotPocketed:state.shotPocketed.slice(),shotRailHit:state.shotRailHit,shotRailBalls:state.shotRailBalls.slice()};
 }
 function persistRoomSnapshot(snapshot,force){
  if(!state.net.room||state.net.role<0)return;
@@ -974,6 +1031,7 @@ async function pruneExpiredSnapshots(){
 }
 function broadcastGameState(force){
  if(state.mode!=='online'||!state.net.connected||state.net.role<0)return;
+ if(state.turnTimerTurn!==state.turn)resetTurnClock();
  const now=Date.now();if(!force&&now-state.net.lastSent<60)return;
  state.net.lastSent=now;
  const snapshot=gameSnapshot();
@@ -986,7 +1044,7 @@ function applyRemoteGameState(p,restoreOwnSnapshot){
  state.net.activeShooter=Number(p.authorRole);
  state.balls=p.balls.map(b=>({n:Number(b.n),x:Number(b.x),y:Number(b.y),vx:Number(b.vx)||0,vy:Number(b.vy)||0,rot:Number(b.rot)||0,onTable:!!b.onTable}));
  state.angle=Number(p.angle)||0;state.power=Math.max(.15,Math.min(1,Number(p.power)||.62));
- state.turn=Number(p.turn)||0;state.scores=Array.isArray(p.scores)?p.scores.slice(0,2):[0,0];state.groups=Array.isArray(p.groups)?p.groups.slice(0,2):[null,null];
+ state.turn=Number(p.turn)||0;state.turnStartedAt=Number(p.turnStartedAt)||Date.now();state.turnTimerTurn=Number.isInteger(p.turnTimerTurn)?p.turnTimerTurn:state.turn;state.scores=Array.isArray(p.scores)?p.scores.slice(0,2):[0,0];state.groups=Array.isArray(p.groups)?p.groups.slice(0,2):[null,null];
  state.breakShot=p.breakShot!==false;state.ballInHand=!!p.ballInHand;state.shotFoul=!!p.shotFoul;state.firstHit=p.firstHit===null||p.firstHit===undefined?null:Number(p.firstHit);state.shotPocketed=Array.isArray(p.shotPocketed)?p.shotPocketed.slice():[];state.shotRailHit=!!p.shotRailHit;state.shotRailBalls=Array.isArray(p.shotRailBalls)?p.shotRailBalls.slice():[];
  state.animating=!!p.animating;state.aiming=!state.animating;state.gameOver=!!p.gameOver;state.winner=p.winner===null||p.winner===undefined?null:Number(p.winner);state.winnerText=p.winnerText||'';
  if(['green','blue','purple','red'].includes(p.skin)){state.skin=p.skin;document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b.dataset.skin===state.skin))}
@@ -1116,6 +1174,7 @@ function loop(ts){
    }
   }
  }
+ tickTurnClock();
  draw();
  requestAnimationFrame(loop);
 }
