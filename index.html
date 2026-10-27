@@ -58,6 +58,10 @@ input[type=range]:not(.power-vertical){width:100%;accent-color:var(--mint);margi
 .panel-head small{font-size:10px;color:var(--muted)}
 select{width:100%;background:#19322f;color:#eaf6ef;border:1px solid #355750;border-radius:10px;padding:11px 10px;outline:none;font-size:12px}
 select:focus{border-color:var(--mint)}
+.name-settings{margin:12px 0 4px;padding:11px;background:#0b1b19;border:1px solid #2b4b43;border-radius:12px}
+.name-field+.name-field{margin-top:10px}
+.name-input{display:block;width:100%;min-width:0;box-sizing:border-box;background:#17312d;color:#f2fbf5;border:1px solid #3a6155;border-radius:9px;padding:10px;font-size:13px;font-weight:700;letter-spacing:0;text-transform:none;outline:none}
+.name-input:focus{border-color:var(--mint)}
 .mode-note{font-size:11px;color:var(--muted);line-height:1.55;margin:9px 0 0}
 .room-box{display:none;margin-top:11px;padding:11px;background:#0b1b19;border:1px solid #2b4b43;border-radius:12px}.room-label{display:block;font-size:10px;color:#a9c8ba;font-weight:850;letter-spacing:.08em;margin-bottom:7px}.room-input-row{display:flex;gap:7px}.room-input{min-width:0;width:100%;background:#17312d;color:#f2fbf5;border:1px solid #3a6155;border-radius:9px;padding:10px;font-size:13px;font-weight:850;letter-spacing:.12em;text-transform:uppercase;outline:none}.room-input:focus{border-color:var(--mint)}.room-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px}.room-status{font-size:10px;color:#a8c5b7;line-height:1.4}.room-status.online{color:var(--mint)}.room-status.error{color:#ffab9d}.room-input-row .btn{padding:10px 11px}
 .cue-list{display:flex;flex-direction:column;gap:8px}
@@ -146,6 +150,17 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
           <option value="race">Carrera a 5 · contra CPU</option>
           <option value="practice">Práctica libre</option>
         </select>
+        <div class="name-settings">
+          <div class="name-field">
+            <label class="room-label" id="userNameLabel" for="userName">TU NOMBRE</label>
+            <input class="name-input" id="userName" type="text" maxlength="18" autocomplete="nickname" placeholder="Escribe tu nombre" aria-label="Tu nombre">
+          </div>
+          <div class="name-field" id="localPlayer2NameWrap" style="display:none">
+            <label class="room-label" for="localPlayer2Name">NOMBRE DEL JUGADOR 2</label>
+            <input class="name-input" id="localPlayer2Name" type="text" maxlength="18" autocomplete="off" placeholder="Nombre del jugador 2" aria-label="Nombre del jugador 2">
+          </div>
+          <p class="mode-note" id="nameModeHint">Tu nombre aparecerá en el marcador.</p>
+        </div>
         <div class="room-box" id="onlineControls">
           <label class="room-label" for="roomCode">CÓDIGO PARA JUGAR CON OTRA PERSONA</label>
           <div class="room-input-row"><input class="room-input" id="roomCode" maxlength="12" placeholder="EJ. MESA8" autocomplete="off" spellcheck="false"><button class="btn primary" id="joinRoomBtn">Conectar</button></div>
@@ -221,18 +236,19 @@ const state={
  aiming:true,drag:null,animating:false,gameOver:false,shotPocketed:[],shotFoul:false,firstHit:null,
  breakShot:true,ballInHand:false,shotRailHit:false,shotRailBalls:[],
  coins:saved.coins??120,wins:saved.wins??0,played:saved.played??0,potted:saved.potted??0,
+ userName:saved.userName||'',localPlayer2Name:saved.localPlayer2Name||'',
  owned:new Set(saved.owned||['wood','cobalt','carbon']),cueId:saved.cueId||'wood',skin:saved.skin==='green'?'red':(saved.skin||'red'),
  lastTime:0,stillFrames:0,shotElapsed:0,toastTimer:null,shotCount:0,roundAwarded:false
 };
 const SUPABASE_URL='https://ygitfqbuyxbnpwoamlsy.supabase.co';
 const SUPABASE_KEY='sb_publishable_WgNHhhK7dS5yP32ZOn3q1g_fZ5mIyVu';
 function getPlayerId(){try{let id=sessionStorage.getItem('mesa8-player-id');if(!id){id='p-'+Math.random().toString(36).slice(2,9)+'-'+Date.now().toString(36);sessionStorage.setItem('mesa8-player-id',id)}return id}catch(e){return 'p-'+Math.random().toString(36).slice(2,12)}}
-state.net={client:null,channel:null,connected:false,room:'',role:-1,players:[],playerId:getPlayerId(),activeShooter:0,lastSent:0,lastPersisted:0,persistChain:Promise.resolve(),persistError:false,roomInitialized:false,requestedState:false};
+state.net={client:null,channel:null,connected:false,room:'',role:-1,players:[],playerId:getPlayerId(),joinedAt:0,activeShooter:0,lastSent:0,lastPersisted:0,persistChain:Promise.resolve(),persistError:false,roomInitialized:false,requestedState:false};
 let supabaseClient=null;
 const $=id=>document.getElementById(id);
 function readSave(){try{return JSON.parse(localStorage.getItem('mesa8-save')||'{}')}catch(e){return {}}}
 function save(){
- try{localStorage.setItem('mesa8-save',JSON.stringify({coins:state.coins,wins:state.wins,played:state.played,potted:state.potted,owned:Array.from(state.owned),cueId:state.cueId,skin:state.skin}))}catch(e){}
+ try{localStorage.setItem('mesa8-save',JSON.stringify({coins:state.coins,wins:state.wins,played:state.played,potted:state.potted,owned:Array.from(state.owned),cueId:state.cueId,skin:state.skin,userName:state.userName,localPlayer2Name:state.localPlayer2Name}))}catch(e){}
 }
 function currentCue(){return cues.find(c=>c.id===state.cueId)||cues[0]}
 function showToast(text){
@@ -244,7 +260,37 @@ function tell(text,type){
 }
 function groupName(g){return g==='solids'?'Lisas':g==='stripes'?'Rayadas':g==='open'?'Mesa abierta':'Sin grupo'}
 function groupForBall(ball){if(ball.n>=1&&ball.n<=7)return 'solids';if(ball.n>=9&&ball.n<=15)return 'stripes';return null}
-function playerName(i){if(state.mode==='online'){const p=state.net.players.find(x=>x.role===i);const name=p&&p.name?p.name:'Jugador '+(i+1);return state.net.role===i?'Tú · '+name:name}if(state.mode==='local')return i===0?'Jugador 1':'Jugador 2';return i===0?'Tú':'Rival CPU'}
+function getUserName(){return String(state.userName||'').replace(/\s+/g,' ').trim().slice(0,18)}
+function getLocalPlayer2Name(){return String(state.localPlayer2Name||'').replace(/\s+/g,' ').trim().slice(0,18)}
+function updateNameControls(){
+ if(!$('userName'))return;
+ $('userName').value=state.userName||'';
+ $('localPlayer2Name').value=state.localPlayer2Name||'';
+ $('localPlayer2NameWrap').style.display=state.mode==='local'?'block':'none';
+ $('userNameLabel').textContent=state.mode==='local'?'NOMBRE DEL JUGADOR 1':state.mode==='online'?'TU NOMBRE EN LÍNEA':'TU NOMBRE';
+ $('nameModeHint').textContent=state.mode==='online'?'Tu nombre se compartirá con la otra persona de la sala.':state.mode==='local'?'Cada jugador puede escribir su propio nombre.':'Tu nombre aparecerá en el marcador.';
+}
+async function updateOnlinePresenceName(){
+ const ch=state.net.channel,role=state.net.role;
+ if(state.mode!=='online'||!state.net.connected||!ch||role<0||role>1)return;
+ const name=getUserName()||'Jugador '+(role+1);
+ const me=state.net.players.find(p=>p.playerId===state.net.playerId);
+ if(me)me.name=name;
+ updateHud(true);
+ try{
+  await ch.track({playerId:state.net.playerId,role,name,joinedAt:state.net.joinedAt||Date.now()});
+ }catch(e){/* El nombre se actualizará al sincronizar la presencia. */}
+}
+function playerName(i){
+ if(state.mode==='online'){
+  const p=state.net.players.find(x=>x.role===i);
+  const name=(state.net.role===i?getUserName():'')||(p&&p.name)||'Jugador '+(i+1);
+  return state.net.role===i?'Tú · '+name:name;
+ }
+ if(state.mode==='local')return i===0?(getUserName()||'Jugador 1'):(getLocalPlayer2Name()||'Jugador 2');
+ if(i===0)return getUserName()||'Tú';
+ return state.mode==='practice'?'Práctica':'Rival CPU';
+}
 function canControlTurn(){if(state.mode==='online')return state.net.connected&&state.net.role>=0&&state.net.role===state.turn;return !(isCPU()&&state.turn===1)}
 function isCPU(){return state.mode==='cpu'||state.mode==='race'}
 function hasMotion(){return state.balls.some(b=>b.onTable&&Math.hypot(b.vx,b.vy)>3)}
@@ -590,6 +636,13 @@ canvas.addEventListener('pointerup',e=>{
 });
 canvas.addEventListener('pointercancel',()=>{state.drag=null;draw()});
 $('power').addEventListener('input',e=>{state.power=Number(e.target.value)/100;$('powerValue').textContent=e.target.value+'%';draw()});
+$('userName').addEventListener('input',e=>{
+ state.userName=e.target.value.slice(0,18);save();updateHud(true);
+ if(state.mode==='online')updateOnlinePresenceName();
+});
+$('localPlayer2Name').addEventListener('input',e=>{
+ state.localPlayer2Name=e.target.value.slice(0,18);save();updateHud(true);
+});
 $('shootBtn').addEventListener('click',shoot);
 $('resetBtn').addEventListener('click',()=>resetMatch(false));
 $('newBreakBtn').addEventListener('click',()=>{resetMatch(false);showToast('¡Nuevo saque preparado!')});
@@ -598,6 +651,7 @@ $('gameMode').addEventListener('change',e=>{
  const notes={cpu:'Emboca tu grupo y termina con la bola 8. ¡No la metas antes de tiempo!',local:'Dos personas juegan por turnos en el mismo dispositivo.',race:'Gana quien emboca primero 5 bolas. La bola 8 no tiene regla especial.',practice:'Sin rival ni puntuación competitiva: prueba ángulos y tacos.',online:'Conecta dos dispositivos usando el mismo código de sala.'};
  if(state.net.channel)leaveRoom();
  $('onlineControls').style.display=state.mode==='online'?'block':'none';
+ updateNameControls();
  $('modeNote').textContent=notes[state.mode]||notes.cpu;$('accuracyLabel').textContent=state.mode==='practice'?'MODO LIBRE':'TACO ACTUAL';
  resetMatch(true);
 });
@@ -948,7 +1002,7 @@ function refreshPresence(){
  const ch=state.net.channel;if(!ch||!state.net.connected)return;
  const previousCount=state.net.players.length;
  const players=readPresence(ch).sort((a,b)=>(Number(a.joinedAt)-Number(b.joinedAt))||String(a.playerId).localeCompare(String(b.playerId)));
- state.net.players=players.map((p,index)=>({...p,role:index<2?index:-1,name:index<2?'Jugador '+(index+1):'Espectador'}));
+ state.net.players=players.map((p,index)=>({...p,role:index<2?index:-1,name:index<2?(String(p.name||'').trim().slice(0,18)||'Jugador '+(index+1)):'Espectador'}));
  const me=state.net.players.find(p=>p.playerId===state.net.playerId);
  if(me)state.net.role=Number(me.role);
  if(state.net.role<0||state.net.role>1){
@@ -984,7 +1038,7 @@ function refreshPresence(){
  }
 }
 async function leaveRoom(){
- const ch=state.net.channel;state.net.channel=null;state.net.connected=false;state.net.role=-1;state.net.players=[];state.net.room='';state.net.activeShooter=0;state.net.roomInitialized=false;state.net.requestedState=false;state.net.lastSent=0;state.net.lastPersisted=0;state.net.persistError=false;
+ const ch=state.net.channel;state.net.channel=null;state.net.connected=false;state.net.role=-1;state.net.players=[];state.net.room='';state.net.joinedAt=0;state.net.activeShooter=0;state.net.roomInitialized=false;state.net.requestedState=false;state.net.lastSent=0;state.net.lastPersisted=0;state.net.persistError=false;
  $('joinRoomBtn').textContent='Conectar';$('copyRoomBtn').disabled=true;setNetStatus('Sin conexión','');
  if(ch&&supabaseClient){try{await supabaseClient.removeChannel(ch)}catch(e){}}
  updateHud(true);
@@ -1013,9 +1067,9 @@ async function connectToRoom(){
     const existing=readPresence(channel);
     const occupied=new Set(existing.filter(p=>p.playerId!==state.net.playerId).map(p=>Number(p.role)));
     const role=!occupied.has(0)?0:!occupied.has(1)?1:-1;
-    state.net.role=role;state.net.connected=true;
+    state.net.role=role;state.net.connected=true;state.net.joinedAt=Date.now();
     try{
-     await channel.track({playerId:state.net.playerId,role:role,name:role===-1?'Espectador':'Jugador '+(role+1),joinedAt:Date.now()});
+     await channel.track({playerId:state.net.playerId,role:role,name:role===-1?'Espectador':(getUserName()||'Jugador '+(role+1)),joinedAt:state.net.joinedAt});
      refreshPresence();
     }catch(err){setNetStatus('No se pudo registrar el jugador.','error')}
    }else if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
@@ -1070,6 +1124,7 @@ const inviteRoom=new URLSearchParams(window.location.search).get('sala');
 if(inviteRoom){state.mode='online';$('roomCode').value=inviteRoom.toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,12)}
 $('gameMode').value=state.mode;
 $('onlineControls').style.display=state.mode==='online'?'block':'none';
+updateNameControls();
 if(!['green','blue','purple','red'].includes(state.skin))state.skin='red';
 document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b.dataset.skin===state.skin));
 resetMatch(true);
