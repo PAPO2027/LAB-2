@@ -203,7 +203,7 @@ const canvas=document.getElementById('table');
 const ctx=canvas.getContext('2d');
 const W=1000,H=560,R=12;
 const bounds={left:85,right:915,top:82,bottom:478};
-const pockets=[{x:85,y:82,corner:true,captureRadius:13.5},{x:500,y:82,corner:false,captureRadius:13.5},{x:915,y:82,corner:true,captureRadius:13.5},{x:85,y:478,corner:true,captureRadius:13.5},{x:500,y:478,corner:false,captureRadius:13.5},{x:915,y:478,corner:true,captureRadius:13.5}];
+const pockets=[{x:85,y:82,corner:true,captureRadius:15.5},{x:500,y:82,corner:false,captureRadius:13.5},{x:915,y:82,corner:true,captureRadius:15.5},{x:85,y:478,corner:true,captureRadius:15.5},{x:500,y:478,corner:false,captureRadius:13.5},{x:915,y:478,corner:true,captureRadius:15.5}];
 const skinColors={green:['#16865d','#07533d'],blue:['#247da8','#124366'],purple:['#7652a2','#39265f'],red:['#ad1734','#760a23']};
 const cues=[
  {id:'wood',name:'Madera clásica',price:0,power:1.25,aim:35,color:'#d9ad6e',dark:'#774725',desc:'Taco inicial, simple y equilibrado.',owned:true},
@@ -338,14 +338,20 @@ function drawTable(){
  cushion.addColorStop(0,'#ed7183');cushion.addColorStop(.18,'#c52948');cushion.addColorStop(.58,'#9b1230');cushion.addColorStop(1,'#470714');
  // Bandas superior e inferior con sombra proyectada para darles volumen.
  ctx.save();ctx.shadowColor='rgba(0,0,0,.92)';ctx.shadowBlur=11;ctx.shadowOffsetY=4;
- ctx.fillStyle=cushion;ctx.fillRect(100,63,800,16);
- ctx.shadowOffsetY=-4;ctx.fillRect(100,481,800,16);
+ // Tres pequeñas secciones por lado: dejamos la entrada de las troneras sin goma atravesada.
+ ctx.fillStyle=cushion;
+ ctx.fillRect(110,63,365,16);ctx.fillRect(525,63,365,16);
+ ctx.shadowOffsetY=-4;
+ ctx.fillRect(110,481,365,16);ctx.fillRect(525,481,365,16);
  ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0;
  ctx.strokeStyle='#ffb4c0';ctx.lineWidth=1.3;
- ctx.beginPath();ctx.moveTo(101,77.5);ctx.lineTo(899,77.5);ctx.stroke();
- ctx.beginPath();ctx.moveTo(101,482);ctx.lineTo(899,482);ctx.stroke();ctx.restore();
+ [[110,475],[525,890]].forEach(([x1,x2])=>{
+  ctx.beginPath();ctx.moveTo(x1,77.5);ctx.lineTo(x2,77.5);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x1,482);ctx.lineTo(x2,482);ctx.stroke();
+ });
+ ctx.restore();
 
- // Bandas laterales en relieve: degradado, sombra exterior y filo iluminado hacia el paño.
+ // Bandas laterales en relieve, más cortas en los extremos para abrir las buchacas de esquina.
  const cushionSideL=ctx.createLinearGradient(63,0,85,0);
  cushionSideL.addColorStop(0,'#35040e');cushionSideL.addColorStop(.2,'#6c0a20');
  cushionSideL.addColorStop(.5,'#b51d3b');cushionSideL.addColorStop(.78,'#ed657b');cushionSideL.addColorStop(1,'#790c25');
@@ -353,15 +359,15 @@ function drawTable(){
  cushionSideR.addColorStop(0,'#ed657b');cushionSideR.addColorStop(.22,'#b51d3b');
  cushionSideR.addColorStop(.52,'#790c25');cushionSideR.addColorStop(.8,'#4e0617');cushionSideR.addColorStop(1,'#2a030b');
  ctx.save();ctx.shadowColor='rgba(0,0,0,.98)';ctx.shadowBlur=13;ctx.shadowOffsetX=4;
- ctx.fillStyle=cushionSideL;roundRect(ctx,64,103,19,354,6);ctx.fill();
- ctx.shadowOffsetX=-4;ctx.fillStyle=cushionSideR;roundRect(ctx,917,103,19,354,6);ctx.fill();
+ ctx.fillStyle=cushionSideL;roundRect(ctx,64,111,19,338,6);ctx.fill();
+ ctx.shadowOffsetX=-4;ctx.fillStyle=cushionSideR;roundRect(ctx,917,111,19,338,6);ctx.fill();
  ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=0;
  ctx.strokeStyle='#ff9bac';ctx.lineWidth=1.5;
- ctx.beginPath();ctx.moveTo(81.5,110);ctx.lineTo(81.5,450);ctx.stroke();
- ctx.beginPath();ctx.moveTo(918.5,110);ctx.lineTo(918.5,450);ctx.stroke();
+ ctx.beginPath();ctx.moveTo(81.5,114);ctx.lineTo(81.5,446);ctx.stroke();
+ ctx.beginPath();ctx.moveTo(918.5,114);ctx.lineTo(918.5,446);ctx.stroke();
  ctx.strokeStyle='#380411';ctx.lineWidth=1.2;
- ctx.beginPath();ctx.moveTo(65,110);ctx.lineTo(65,450);ctx.stroke();
- ctx.beginPath();ctx.moveTo(935,110);ctx.lineTo(935,450);ctx.stroke();ctx.restore();
+ ctx.beginPath();ctx.moveTo(65,114);ctx.lineTo(65,446);ctx.stroke();
+ ctx.beginPath();ctx.moveTo(935,114);ctx.lineTo(935,446);ctx.stroke();ctx.restore();
  // Delicate cloth grain and tournament markings.
  ctx.save();ctx.globalAlpha=.09;ctx.strokeStyle='#dbffe8';ctx.lineWidth=1;
  for(let x=95;x<910;x+=24){ctx.beginPath();ctx.moveTo(x,90);ctx.lineTo(x+12,470);ctx.stroke()}
@@ -381,7 +387,7 @@ function drawTable(){
   ctx.save();ctx.translate(953,y);ctx.rotate(Math.PI/4);ctx.fillRect(-3,-3,6,6);ctx.restore();
  }
  pockets.forEach(p=>{
-  // Aperture is only a little wider than a ball (diameter 24); corner pockets are slightly larger.
+  // Corner openings are kept slightly more generous; side pockets remain tighter.
   const mouth=p.captureRadius;
   const rimOuter=mouth+4.2;
   ctx.save();ctx.shadowColor='#000c';ctx.shadowBlur=7;ctx.shadowOffsetY=2;
