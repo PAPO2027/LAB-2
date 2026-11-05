@@ -313,30 +313,14 @@ const SUPABASE_URL='https://ygitfqbuyxbnpwoamlsy.supabase.co';
 const SUPABASE_KEY='sb_publishable_WgNHhhK7dS5yP32ZOn3q1g_fZ5mIyVu';
 function getPlayerId(){try{let id=sessionStorage.getItem('mesa8-player-id');if(!id){id='p-'+Math.random().toString(36).slice(2,9)+'-'+Date.now().toString(36);sessionStorage.setItem('mesa8-player-id',id)}return id}catch(e){return 'p-'+Math.random().toString(36).slice(2,12)}}
 state.net={client:null,channel:null,connected:false,room:'',role:-1,players:[],playerId:getPlayerId(),joinedAt:0,activeShooter:0,lastSent:0,lastPersisted:0,persistChain:Promise.resolve(),persistError:false,roomInitialized:false,requestedState:false};
-let supabaseClient=null;
 let roomClient=null;
-let authUser=null;
+let authToken=null;
 let authMode='login';
 let cloudProfileReady=false;
 let cloudSaveTimer=null;
 let profileSaveChain=Promise.resolve();
-let profileLoadPromise=null;
-let profileLoadUserId=null;
-let loadedProfileUserId=null;
-let authListenerRegistered=false;
 const $=id=>document.getElementById(id);
 function readSave(){try{return JSON.parse(localStorage.getItem('mesa8-save')||'{}')}catch(e){return {}}}
-function normalizeUsername(value){
- return String(value||'').normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase();
-}
-function usernameAuthAlias(value){
- const canonical=normalizeUsername(value);
- const bytes=new TextEncoder().encode(canonical);
- let binary='';
- for(let i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
- const token=btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
- return 'u-'+token+'@players.mesa8.invalid';
-}
 function localSave(){
  try{
   localStorage.setItem('mesa8-save',JSON.stringify({
@@ -346,28 +330,38 @@ function localSave(){
   }));
  }catch(e){}
 }
-function profilePayload(user){
+function profilePayload(){
  return {
-  user_id:user.id,username:state.userName,username_key:normalizeUsername(state.userName),
   wins:state.wins,losses:state.losses,coins:state.coins,played:state.played,potted:state.potted,
-  owned:Array.from(state.owned),cue_id:state.cueId,skin:state.skin,updated_at:new Date().toISOString()
+  owned:Array.from(state.owned),cue_id:state.cueId,skin:state.skin
  };
 }
-async function writeCloudProfile(user){
- const {error}=await supabaseClient.from('mesa8_profiles').upsert(profilePayload(user),{onConflict:'user_id'});
- if(error)throw error;
+async function callAccountApi(action,payload={},token){
+ const headers={'Content-Type':'application/json','apikey':SUPABASE_KEY};
+ const activeToken=token===undefined?authToken:token;
+ if(activeToken)headers['x-mesa8-token']=activeToken;
+ const response=await fetch(SUPABASE_URL+'/functions/v1/mesa8-account',{
+  method:'POST',headers,body:JSON.stringify({action,...payload})
+ });
+ let data={};
+ try{data=await response.json()}catch(e){data={error:'Respuesta inválida del servidor.'}}
+ if(!response.ok){
+  const error=new Error(data.error||'No se pudo completar la operación.');
+  error.status=response.status;
+  throw error;
+ }
+ return data;
 }
 function save(){
  localSave();
- if(!authUser||!cloudProfileReady||!supabaseClient)return;
+ if(!authToken||!cloudProfileReady)return;
  clearTimeout(cloudSaveTimer);
  cloudSaveTimer=setTimeout(()=>{
-  const user=authUser;
-  const snapshot=profilePayload(user);
+  const token=authToken;
+  const snapshot=profilePayload();
   profileSaveChain=profileSaveChain.catch(()=>{}).then(async()=>{
-   if(!authUser||authUser.id!==user.id)return;
-   const {error}=await supabaseClient.from('mesa8_profiles').upsert(snapshot,{onConflict:'user_id'});
-   if(error)throw error;
+   if(!authToken||authToken!==token)return;
+   await callAccountApi('save_profile',snapshot,token);
   }).catch(error=>{
    console.warn('MESA 8: no se pudo sincronizar el progreso.',error);
    showToast('No se pudo guardar tu progreso en la nube.');
@@ -401,8 +395,8 @@ function updateNameControls(){
  $('localPlayer2NameWrap').style.display=state.mode==='local'?'block':'none';
  $('userNameLabel').textContent=state.mode==='local'?'NOMBRE DEL JUGADOR 1':state.mode==='online'?'TU NOMBRE EN LÍNEA':'TU NOMBRE';
  $('nameModeHint').textContent=state.mode==='online'?'Tu nombre se compartirá con la otra persona de la sala.':state.mode==='local'?'Cada jugador puede escribir su propio nombre.':'Tu nombre aparecerá en el marcador.';
- $('userName').readOnly=!!authUser;
- $('userName').title=authUser?'El nombre de la cuenta no se puede cambiar desde esta partida.':'';
+ $('userName').readOnly=!!authToken;
+ $('userName').title=authToken?'El nombre de la cuenta no se puede cambiar desde esta partida.':'';
 }
 function setAuthFeedback(message,isError){
  const box=$('authFeedback');
@@ -422,169 +416,113 @@ function setAuthMode(mode){
  $('authSubmit').textContent=registering?'Crear cuenta gratis':'Entrar al juego';
  setAuthFeedback('',false);
 }
-function applyAuthSession(session){
- const nextUser=session?.user||null;
- if(!nextUser||nextUser.id!==authUser?.id){
-  cloudProfileReady=false;
-  loadedProfileUserId=null;
- }
- authUser=nextUser;
- $('authGate').hidden=!!authUser&&cloudProfileReady;
- $('accountBar').hidden=!authUser;
- if(authUser){
-  const displayName=String(authUser.user_metadata?.display_name||state.userName||'Cuenta').replace(/\s+/g,' ').trim().slice(0,18);
-  $('accountName').textContent=displayName;
-  if(displayName&&!state.userName)state.userName=displayName;
-  updateNameControls();
- }else{
-  $('accountName').textContent='';
-  updateNameControls();
- }
-}
-function resetAccountProgress(username){
+function applyAccountProfile(username,profile,token){
+ authToken=token||authToken;
  state.userName=String(username||'Jugador').replace(/\s+/g,' ').trim().slice(0,18);
- state.coins=120;state.wins=0;state.losses=0;state.played=0;state.potted=0;
- state.owned=new Set(['wood','cobalt','carbon']);
- state.cueId='wood';state.skin='red';
+ state.wins=Math.max(0,Number(profile.wins)||0);
+ state.losses=Math.max(0,Number(profile.losses)||0);
+ state.coins=Math.max(0,Number(profile.coins)||0);
+ state.played=Math.max(0,Number(profile.played)||0);
+ state.potted=Math.max(0,Number(profile.potted)||0);
+ const validOwned=Array.isArray(profile.owned)?profile.owned.filter(id=>cues.some(c=>c.id===id)):[];
+ state.owned=new Set(validOwned.length?validOwned:['wood','cobalt','carbon']);
+ state.cueId=cues.some(c=>c.id===profile.cue_id&&state.owned.has(c.id))?profile.cue_id:'wood';
+ state.skin=['green','blue','purple','red'].includes(profile.skin)?profile.skin:'red';
+ cloudProfileReady=true;
+ localSave();
+ updateNameControls();
+ updateHud();
+ $('accountName').textContent=state.userName;
+ $('accountBar').hidden=false;
+ $('authGate').hidden=true;
 }
-async function loadPlayerProfile(user,preferredName){
- if(!user||!supabaseClient)return;
- if(loadedProfileUserId===user.id&&cloudProfileReady)return;
- if(profileLoadPromise&&profileLoadUserId===user.id)return profileLoadPromise;
- profileLoadUserId=user.id;
- profileLoadPromise=(async()=>{
-  cloudProfileReady=false;
-  $('authGate').hidden=false;
-  setAuthFeedback('Cargando tu progreso guardado…',false);
-  const {data:profile,error}=await supabaseClient.from('mesa8_profiles')
-   .select('user_id,username,wins,losses,coins,played,potted,owned,cue_id,skin')
-   .eq('user_id',user.id).maybeSingle();
-  if(error)throw error;
-  if(profile){
-   state.userName=String(profile.username||preferredName||user.user_metadata?.display_name||'Jugador').replace(/\s+/g,' ').trim().slice(0,18);
-   state.wins=Math.max(0,Number(profile.wins)||0);
-   state.losses=Math.max(0,Number(profile.losses)||0);
-   state.coins=Math.max(0,Number(profile.coins)||0);
-   state.played=Math.max(0,Number(profile.played)||0);
-   state.potted=Math.max(0,Number(profile.potted)||0);
-   const validOwned=Array.isArray(profile.owned)?profile.owned.filter(id=>cues.some(c=>c.id===id)):[];
-   state.owned=new Set(validOwned.length?validOwned:['wood','cobalt','carbon']);
-   state.cueId=cues.some(c=>c.id===profile.cue_id&&state.owned.has(c.id))?profile.cue_id:'wood';
-   state.skin=['green','blue','purple','red'].includes(profile.skin)?profile.skin:'red';
-  }else{
-   resetAccountProgress(preferredName||user.user_metadata?.display_name||'Jugador');
-   await writeCloudProfile(user);
-  }
-  loadedProfileUserId=user.id;
-  cloudProfileReady=true;
-  localSave();
-  updateNameControls();
-  updateHud();
-  $('accountName').textContent=state.userName;
-  $('authGate').hidden=true;
-  setAuthFeedback('',false);
- })();
- try{
-  await profileLoadPromise;
- }catch(error){
-  cloudProfileReady=false;
-  $('authGate').hidden=false;
-  setAuthFeedback('No se pudo cargar tu progreso en la nube. Comprueba que la tabla mesa8_profiles esté creada en Supabase. '+(error.message||''),true);
-  throw error;
- }finally{
-  profileLoadPromise=null;
-  profileLoadUserId=null;
- }
+function setAuthMode(mode){
+ authMode=mode==='register'?'register':'login';
+ const registering=authMode==='register';
+ $('loginTab').classList.toggle('active',!registering);
+ $('registerTab').classList.toggle('active',registering);
+ $('loginTab').setAttribute('aria-selected',String(!registering));
+ $('registerTab').setAttribute('aria-selected',String(registering));
+ $('authPassword').autocomplete=registering?'new-password':'current-password';
+ $('authTitle').textContent=registering?'Crea tu cuenta':'Inicia sesión';
+ $('authSubtitle').textContent=registering?'Elige un nombre de usuario y una contraseña. No necesitas correo ni teléfono.':'Escribe el mismo nombre de usuario y contraseña que registraste.';
+ $('authSubmit').textContent=registering?'Crear cuenta gratis':'Entrar al juego';
+ setAuthFeedback('',false);
 }
 async function initializeAuth(){
+ const savedToken=localStorage.getItem('mesa8-auth-token');
+ if(!savedToken){
+  authToken=null;cloudProfileReady=false;
+  $('accountBar').hidden=true;$('authGate').hidden=false;
+  updateNameControls();
+  return;
+ }
  try{
-  if(!window.supabase||typeof window.supabase.createClient!=='function')throw new Error('No se pudo cargar el servicio de cuentas. Recarga la página.');
-  if(!supabaseClient)supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
-   auth:{autoRefreshToken:true,persistSession:true,detectSessionInUrl:true}
-  });
-  const {data,error}=await supabaseClient.auth.getSession();
-  if(error)throw error;
-  applyAuthSession(data.session);
-  if(data.session)await loadPlayerProfile(data.session.user);
-  if(!authListenerRegistered){
-   supabaseClient.auth.onAuthStateChange((_event,session)=>{
-    const sameUser=!!session&&authUser?.id===session.user.id;
-    applyAuthSession(session);
-    if(session&&(!sameUser||!cloudProfileReady)){
-     setTimeout(()=>loadPlayerProfile(session.user).catch(()=>{}),0);
-    }
-   });
-   authListenerRegistered=true;
-  }
+  const data=await callAccountApi('get_profile',{},savedToken);
+  localStorage.setItem('mesa8-auth-token',savedToken);
+  applyAccountProfile(data.username,data.profile,savedToken);
+  setAuthFeedback('',false);
  }catch(error){
-  setAuthFeedback('No se pudo iniciar el acceso o recuperar el progreso: '+(error.message||'error desconocido'),true);
+  if(error.status===401){
+   localStorage.removeItem('mesa8-auth-token');
+   authToken=null;cloudProfileReady=false;
+   $('accountBar').hidden=true;$('authGate').hidden=false;
+   setAuthFeedback('Tu sesión venció. Inicia sesión con tu nombre y contraseña.',false);
+  }else{
+   authToken=savedToken;cloudProfileReady=false;
+   $('accountBar').hidden=true;$('authGate').hidden=false;
+   setAuthFeedback('No se pudo conectar con el servidor de cuentas. '+(error.message||''),true);
+  }
+  updateNameControls();
  }
 }
 async function submitAuthForm(event){
  event.preventDefault();
- if(!supabaseClient){await initializeAuth();if(!supabaseClient)return}
  const username=$('authUsername').value.replace(/\s+/g,' ').trim().slice(0,18);
- const usernameKey=normalizeUsername(username);
  const password=$('authPassword').value;
  if([...username].length<3||username.includes('@')){
-  setAuthFeedback('Escribe un nombre de usuario de 3 a 18 caracteres. No introduzcas un correo electrónico.',true);return;
+  setAuthFeedback('Escribe un nombre de usuario de 3 a 18 caracteres. No introduzcas un correo.',true);return;
  }
- if(password.length<8){setAuthFeedback('La contraseña debe tener al menos 8 caracteres.',true);return}
- const authAlias=usernameAuthAlias(username);
+ if(password.length<8||password.length>128){
+  setAuthFeedback('La contraseña debe tener entre 8 y 128 caracteres.',true);return;
+ }
  const button=$('authSubmit');
  button.disabled=true;
  button.textContent=authMode==='register'?'Creando cuenta…':'Verificando…';
  setAuthFeedback('',false);
  try{
-  if(authMode==='register'){
-   const {data,error}=await supabaseClient.auth.signUp({
-    email:authAlias,password,
-    options:{data:{display_name:username,username_key:usernameKey}}
-   });
-   if(error)throw error;
-   if(!data.session){
-    throw new Error('Supabase todavía exige confirmar un correo. Como MESA 8 usa nombres inventados y no correos reales, desactiva Confirm email en Authentication → Providers → Email.');
-   }
-   applyAuthSession(data.session);
-   await loadPlayerProfile(data.session.user,username);
-   setAuthFeedback('¡Cuenta creada! Tu progreso ya está asociado a este nombre de usuario.',false);
-  }else{
-   const {data,error}=await supabaseClient.auth.signInWithPassword({email:authAlias,password});
-   if(error)throw error;
-   if(data.session){
-    applyAuthSession(data.session);
-    await loadPlayerProfile(data.session.user);
-    setAuthFeedback('',false);
-   }
-  }
+  const action=authMode==='register'?'signup':'login';
+  const data=await callAccountApi(action,{username,password},null);
+  if(!data.token||!data.profile||!data.username)throw new Error('El servidor devolvió una cuenta incompleta.');
+  localStorage.setItem('mesa8-auth-token',data.token);
+  $('authPassword').value='';
+  applyAccountProfile(data.username,data.profile,data.token);
+  setAuthFeedback(authMode==='register'?'¡Cuenta creada! Tu progreso se guardará con este nombre.':'Sesión iniciada. Tu progreso se ha recuperado.',false);
  }catch(error){
-  const raw=String(error.message||'');
-  let message=raw;
-  if(/invalid login credentials/i.test(raw))message='Nombre de usuario o contraseña incorrectos.';
-  else if(/user already registered|already been registered|already exists/i.test(raw))message='Ese nombre de usuario ya está ocupado. Elige otro o inicia sesión.';
-  else if(/password should be at least/i.test(raw))message='La contraseña no cumple los requisitos mínimos.';
-  else if(/email not confirmed/i.test(raw))message='La confirmación de correo sigue activada en Supabase. Debes desactivarla para usar nombres inventados.';
-  setAuthFeedback(message||'No se pudo completar la solicitud. Inténtalo de nuevo.',true);
+  let message=String(error.message||'No se pudo completar la solicitud.');
+  if(error.status===409)message='Ese nombre de usuario ya está ocupado. Elige otro o inicia sesión.';
+  else if(error.status===401)message='Nombre de usuario o contraseña incorrectos.';
+  setAuthFeedback(message,true);
  }finally{
   button.disabled=false;
   button.textContent=authMode==='register'?'Crear cuenta gratis':'Entrar al juego';
  }
 }
 async function signOutAccount(){
- if(!supabaseClient)return;
  const button=$('signOutBtn');button.disabled=true;
  try{
   if(state.net.channel)await leaveRoom();
-  const {error}=await supabaseClient.auth.signOut();
-  if(error)throw error;
-  setAuthMode('login');
-  $('authPassword').value='';
-  $('authUsername').value='';
-  setAuthFeedback('',false);
+  if(authToken)await callAccountApi('logout',{},authToken);
  }catch(error){
-  showToast('No se pudo cerrar la sesión.');
-  console.error('MESA 8 sign out:',error);
- }finally{button.disabled=false}
+  console.warn('MESA 8 logout:',error);
+ }finally{
+  localStorage.removeItem('mesa8-auth-token');
+  authToken=null;cloudProfileReady=false;
+  $('accountBar').hidden=true;$('authGate').hidden=false;
+  $('authPassword').value='';$('authUsername').value='';
+  setAuthMode('login');updateNameControls();
+  button.disabled=false;
+ }
 }
 async function updateOnlinePresenceName(){
  const ch=state.net.channel,role=state.net.role;
