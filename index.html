@@ -413,7 +413,7 @@ async function submitAuthForm(event){
     email,password,
     options:{
      data:{display_name:name},
-     emailRedirectTo:window.location.href
+     emailRedirectTo:window.location.origin+window.location.pathname
     }
    });
    if(error)throw error;
