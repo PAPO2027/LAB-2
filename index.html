@@ -475,7 +475,6 @@ async function loadPlayerProfile(user,preferredName){
   updateNameControls();
   updateHud();
   $('accountName').textContent=state.userName;
-  $('authGate').hidden=false===false;
   $('authGate').hidden=true;
   setAuthFeedback('',false);
  })();
