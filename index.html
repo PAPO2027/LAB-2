@@ -385,7 +385,8 @@ async function initializeAuth(){
  try{
   if(!window.supabase||typeof window.supabase.createClient!=='function')throw new Error('No se pudo cargar el servicio de cuentas. Recarga la página.');
   if(!supabaseClient)supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
-   auth:{autoRefreshToken:true,persistSession:true,detectSessionInUrl:true}
+   auth:{autoRefreshToken:true,persistSession:true,detectSessionInUrl:true},
+   realtime:{params:{eventsPerSecond:25}}
   });
   const {data,error}=await supabaseClient.auth.getSession();
   if(error)throw error;
@@ -1273,7 +1274,11 @@ function refreshPresence(){
    else resetMatch(true);
    setNetStatus('Conectado · Jugador 1 · '+Math.min(2,state.net.players.length)+'/2','online');
   }).catch(()=>{
-   if(state.net.room===room&&state.net.role===0)resetMatch(true);
+   // Si falla la lectura de la copia de respaldo, conserva la mesa actual y usa Realtime.
+   if(state.net.room===room&&state.net.role===0){
+    setNetStatus('Conectado · Jugador 1 · sincronización en vivo','online');
+    broadcastGameState(true);
+   }
   });
  }else if(state.net.role===0&&previousCount<players.length&&players.filter(p=>Number(p.role)>=0).length>=2){
   broadcastGameState(true);
