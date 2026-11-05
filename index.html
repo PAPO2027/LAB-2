@@ -104,6 +104,33 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
 @media(max-width:1050px){.layout{grid-template-columns:minmax(0,1fr) 270px;gap:12px}.panel{padding:13px}.cue-option{gap:7px}.cue-preview{width:39px;height:42px}}
 @media(max-width:790px){.app{padding:13px 10px 20px}.layout{grid-template-columns:1fr}.sidebar{display:grid;grid-template-columns:1fr 1fr;align-items:start}.panel.cues-panel{grid-row:span 2}.topbar{align-items:flex-start}.pill.record{display:none}.scoreboard{grid-template-columns:1fr auto 1fr}.player-card{padding:9px}.avatar{width:30px;height:30px;border-radius:9px}.player-name{font-size:11px}.player-detail{font-size:9px}.score-number{font-size:18px}.control-strip{padding:11px;grid-template-columns:1fr}.action-buttons .btn{flex:1}.table-caption{font-size:8px;left:13px;top:12px}}
 @media(max-width:520px){.brand-mark{width:40px;height:40px}.brand p{font-size:9px}.top-right .pill{font-size:11px;padding:8px 10px}.sidebar{grid-template-columns:1fr}.panel.cues-panel{grid-row:auto}.cue-list{display:grid;grid-template-columns:1fr 1fr}.cue-option{align-items:flex-start;padding:8px}.cue-preview{width:32px;height:36px}.cue-preview svg{width:27px;height:27px}.cue-option .cue-price{display:block;margin-top:4px}.power-vertical{height:116px}.power-scale{height:116px}.scoreboard{gap:4px}.player-card{gap:6px}.table-frame{padding:5px;border-radius:12px}.table-inner{border-radius:8px}.table-tip{font-size:10px}.btn{padding:11px 10px}}
+/* Autenticación de jugadores */
+.account-pill{display:flex;align-items:center;gap:9px;max-width:260px;padding:7px 9px 7px 12px;border:1px solid var(--line);background:#102321;border-radius:999px;color:#cbe5d7;font-size:11px}
+.account-pill[hidden]{display:none}
+.account-pill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:155px}
+.account-pill button{border:1px solid #416357;background:#193532;color:#dff4e8;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:800}
+.auth-gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:20px;background:rgba(3,12,11,.94);backdrop-filter:blur(12px)}
+.auth-gate[hidden]{display:none}
+.auth-card{width:min(100%,430px);padding:26px;border:1px solid #31584d;border-radius:22px;background:linear-gradient(155deg,#15312d,#0b1c1b);box-shadow:0 25px 80px #0009}
+.auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:19px}
+.auth-brand-mark{width:46px;height:46px;display:grid;place-items:center;border-radius:14px;background:linear-gradient(135deg,#7de4b8,#2b9c74);color:#09231b;font-size:25px;font-weight:1000}
+.auth-brand h2{margin:0;font-size:19px;letter-spacing:.08em}
+.auth-brand p{margin:4px 0 0;color:var(--muted);font-size:10px;letter-spacing:.15em;text-transform:uppercase}
+.auth-title{margin:0 0 6px;font-size:22px}
+.auth-subtitle{margin:0 0 18px;color:var(--muted);font-size:12px;line-height:1.6}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:4px;margin-bottom:17px;border:1px solid #294a42;border-radius:12px;background:#091a18}
+.auth-tab{border:0;border-radius:9px;padding:10px;background:transparent;color:#a9c8ba;font-size:12px;font-weight:850}
+.auth-tab.active{background:#245541;color:#dfffee}
+.auth-field{display:block;margin:12px 0}
+.auth-field span{display:block;margin-bottom:7px;color:#b9d4c6;font-size:10px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.auth-input{display:block;width:100%;border:1px solid #3a6155;border-radius:10px;padding:12px;background:#0b1b19;color:#f2fbf5;font-size:13px;outline:none}
+.auth-input:focus{border-color:var(--mint);box-shadow:0 0 0 2px #69e0b222}
+.auth-submit{width:100%;margin-top:8px;border:1px solid #a7f8d1;border-radius:11px;padding:13px;background:linear-gradient(135deg,#88ebbd,#4cc993);color:#06281b;font-size:13px;font-weight:900}
+.auth-submit:disabled{opacity:.55;cursor:wait}
+.auth-feedback{min-height:20px;margin:12px 0 0;color:#a9f1cd;font-size:11px;line-height:1.5}
+.auth-feedback.error{color:#ffab9d}
+.auth-footer{margin:10px 0 0;color:#839f93;font-size:10px;line-height:1.6;text-align:center}
+@media(max-width:520px){.account-pill{max-width:180px;gap:6px;padding:6px 7px 6px 9px}.account-pill span{max-width:90px}.auth-card{padding:21px}.auth-title{font-size:20px}} 
 </style>
 </head>
 <body>
@@ -116,6 +143,7 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
     <div class="top-right">
       <div class="pill record">🏆 Victorias <strong id="winsTop">0</strong></div>
       <div class="pill">🪙 <strong id="coinsTop">120</strong> monedas</div>
+      <div class="account-pill" id="accountBar" hidden><span id="accountName"></span><button type="button" id="signOutBtn">Salir</button></div>
     </div>
   </header>
 
@@ -209,6 +237,7 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
         <div class="mini-stats">
           <div class="stat"><b id="potStat">0</b><span>Bolas embocadas</span></div>
           <div class="stat"><b id="matchStat">0</b><span>Partidas jugadas</span></div>
+          <div class="stat"><b id="lossStat">0</b><span>Derrotas</span></div>
         </div>
         <div class="section-divider"></div>
         <div class="panel-head"><h2>Precisión</h2><small id="accuracyLabel">TACO ACTUAL</small></div>
@@ -217,9 +246,37 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
       </section>
     </aside>
   </main>
-  <footer class="footnote">MESA 8 es un juego de billar original para navegador, inspirado en las reglas clásicas de pool.<br>Tu progreso se guarda en este dispositivo. No requiere cuenta ni instalación.</footer>
+  <footer class="footnote">MESA 8 es un juego de billar original para navegador, inspirado en las reglas clásicas de pool.<br>Inicia sesión con tu nombre de usuario para recuperar tu progreso en cualquier dispositivo.</footer>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<section class="auth-gate" id="authGate" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="auth-brand-mark">8</div>
+      <div><h2>MESA 8</h2><p>Pool Arena · Acceso de jugadores</p></div>
+    </div>
+    <h1 class="auth-title" id="authTitle">Inicia sesión</h1>
+    <p class="auth-subtitle" id="authSubtitle">Ingresa a tu cuenta para continuar y jugar con otras personas.</p>
+    <div class="auth-tabs" role="tablist" aria-label="Acceso a MESA 8">
+      <button class="auth-tab active" id="loginTab" type="button" role="tab" aria-selected="true">Iniciar sesión</button>
+      <button class="auth-tab" id="registerTab" type="button" role="tab" aria-selected="false">Crear cuenta</button>
+    </div>
+    <form id="authForm">
+      <label class="auth-field">
+        <span>Nombre de usuario</span>
+        <input class="auth-input" id="authUsername" type="text" maxlength="18" minlength="3" autocomplete="username" required placeholder="Ej. Nicolas_08">
+      </label>
+      <label class="auth-field">
+        <span>Contraseña</span>
+        <input class="auth-input" id="authPassword" type="password" minlength="8" autocomplete="current-password" required placeholder="Mínimo 8 caracteres">
+      </label>
+      <button class="auth-submit" id="authSubmit" type="submit">Entrar al juego</button>
+    </form>
+    <p class="auth-feedback" id="authFeedback" role="status" aria-live="polite"></p>
+    <p class="auth-footer">No necesitas correo ni teléfono. Usa el mismo nombre y contraseña en cada dispositivo. Guarda tu contraseña: no hay recuperación automática si la olvidas.</p>
+  </div>
+</section>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -247,7 +304,7 @@ const state={
  balls:[],angle:0,power:.62,turn:0,scores:[0,0],groups:[null,null],mode:'cpu',
  aiming:true,drag:null,animating:false,gameOver:false,shotPocketed:[],shotFoul:false,firstHit:null,
  breakShot:true,ballInHand:false,shotRailHit:false,shotRailBalls:[],
- coins:saved.coins??120,wins:saved.wins??0,played:saved.played??0,potted:saved.potted??0,
+ coins:saved.coins??120,wins:saved.wins??0,losses:saved.losses??0,played:saved.played??0,potted:saved.potted??0,
  userName:saved.userName||'',localPlayer2Name:saved.localPlayer2Name||'',
  owned:new Set(saved.owned||['wood','cobalt','carbon']),cueId:saved.cueId||'wood',skin:saved.skin==='green'?'red':(saved.skin||'red'),
  lastTime:0,stillFrames:0,shotElapsed:0,turnStartedAt:Date.now(),turnTimerTurn:0,toastTimer:null,shotCount:0,roundAwarded:false
@@ -256,11 +313,68 @@ const SUPABASE_URL='https://ygitfqbuyxbnpwoamlsy.supabase.co';
 const SUPABASE_KEY='sb_publishable_WgNHhhK7dS5yP32ZOn3q1g_fZ5mIyVu';
 function getPlayerId(){try{let id=sessionStorage.getItem('mesa8-player-id');if(!id){id='p-'+Math.random().toString(36).slice(2,9)+'-'+Date.now().toString(36);sessionStorage.setItem('mesa8-player-id',id)}return id}catch(e){return 'p-'+Math.random().toString(36).slice(2,12)}}
 state.net={client:null,channel:null,connected:false,room:'',role:-1,players:[],playerId:getPlayerId(),joinedAt:0,activeShooter:0,lastSent:0,lastPersisted:0,persistChain:Promise.resolve(),persistError:false,roomInitialized:false,requestedState:false};
-let supabaseClient=null;
+let roomClient=null;
+let authToken=null;
+let authMode='login';
+let cloudProfileReady=false;
+let cloudSaveTimer=null;
+let profileSaveChain=Promise.resolve();
 const $=id=>document.getElementById(id);
 function readSave(){try{return JSON.parse(localStorage.getItem('mesa8-save')||'{}')}catch(e){return {}}}
+function localSave(){
+ try{
+  localStorage.setItem('mesa8-save',JSON.stringify({
+   coins:state.coins,wins:state.wins,losses:state.losses,played:state.played,potted:state.potted,
+   owned:Array.from(state.owned),cueId:state.cueId,skin:state.skin,userName:state.userName,
+   localPlayer2Name:state.localPlayer2Name
+  }));
+ }catch(e){}
+}
+function profilePayload(){
+ return {
+  wins:state.wins,losses:state.losses,coins:state.coins,played:state.played,potted:state.potted,
+  owned:Array.from(state.owned),cue_id:state.cueId,skin:state.skin
+ };
+}
+async function callAccountApi(action,payload={},token){
+ const headers={'Content-Type':'application/json','apikey':SUPABASE_KEY};
+ const activeToken=token===undefined?authToken:token;
+ if(activeToken)headers['x-mesa8-token']=activeToken;
+ const response=await fetch(SUPABASE_URL+'/functions/v1/mesa8-account',{
+  method:'POST',headers,body:JSON.stringify({action,...payload})
+ });
+ let data={};
+ try{data=await response.json()}catch(e){data={error:'Respuesta inválida del servidor.'}}
+ if(!response.ok){
+  const error=new Error(data.error||'No se pudo completar la operación.');
+  error.status=response.status;
+  throw error;
+ }
+ return data;
+}
 function save(){
- try{localStorage.setItem('mesa8-save',JSON.stringify({coins:state.coins,wins:state.wins,played:state.played,potted:state.potted,owned:Array.from(state.owned),cueId:state.cueId,skin:state.skin,userName:state.userName,localPlayer2Name:state.localPlayer2Name}))}catch(e){}
+ localSave();
+ if(!authToken||!cloudProfileReady)return;
+ clearTimeout(cloudSaveTimer);
+ cloudSaveTimer=setTimeout(()=>{
+  const token=authToken;
+  const snapshot=profilePayload();
+  profileSaveChain=profileSaveChain.catch(()=>{}).then(async()=>{
+   if(!authToken||authToken!==token)return;
+   await callAccountApi('save_profile',snapshot,token);
+  }).catch(error=>{
+   console.warn('MESA 8: no se pudo sincronizar el progreso.',error);
+   showToast('No se pudo guardar tu progreso en la nube.');
+  });
+ },500);
+}
+function getRoomClient(){
+ if(!window.supabase||typeof window.supabase.createClient!=='function')throw new Error('Supabase no está disponible.');
+ if(!roomClient)roomClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+  auth:{autoRefreshToken:false,persistSession:false,detectSessionInUrl:false},
+  realtime:{params:{eventsPerSecond:25}}
+ });
+ return roomClient;
 }
 function currentCue(){return cues.find(c=>c.id===state.cueId)||cues[0]}
 function showToast(text){
@@ -281,6 +395,134 @@ function updateNameControls(){
  $('localPlayer2NameWrap').style.display=state.mode==='local'?'block':'none';
  $('userNameLabel').textContent=state.mode==='local'?'NOMBRE DEL JUGADOR 1':state.mode==='online'?'TU NOMBRE EN LÍNEA':'TU NOMBRE';
  $('nameModeHint').textContent=state.mode==='online'?'Tu nombre se compartirá con la otra persona de la sala.':state.mode==='local'?'Cada jugador puede escribir su propio nombre.':'Tu nombre aparecerá en el marcador.';
+ $('userName').readOnly=!!authToken;
+ $('userName').title=authToken?'El nombre de la cuenta no se puede cambiar desde esta partida.':'';
+}
+function setAuthFeedback(message,isError){
+ const box=$('authFeedback');
+ box.textContent=message||'';
+ box.className='auth-feedback'+(isError?' error':'');
+}
+function setAuthMode(mode){
+ authMode=mode==='register'?'register':'login';
+ const registering=authMode==='register';
+ $('loginTab').classList.toggle('active',!registering);
+ $('registerTab').classList.toggle('active',registering);
+ $('loginTab').setAttribute('aria-selected',String(!registering));
+ $('registerTab').setAttribute('aria-selected',String(registering));
+ $('authPassword').autocomplete=registering?'new-password':'current-password';
+ $('authTitle').textContent=registering?'Crea tu cuenta':'Inicia sesión';
+ $('authSubtitle').textContent=registering?'Elige un nombre de usuario y una contraseña. No necesitas correo electrónico.':'Escribe el mismo nombre de usuario y contraseña que registraste.';
+ $('authSubmit').textContent=registering?'Crear cuenta gratis':'Entrar al juego';
+ setAuthFeedback('',false);
+}
+function applyAccountProfile(username,profile,token){
+ authToken=token||authToken;
+ state.userName=String(username||'Jugador').replace(/\s+/g,' ').trim().slice(0,18);
+ state.wins=Math.max(0,Number(profile.wins)||0);
+ state.losses=Math.max(0,Number(profile.losses)||0);
+ state.coins=Math.max(0,Number(profile.coins)||0);
+ state.played=Math.max(0,Number(profile.played)||0);
+ state.potted=Math.max(0,Number(profile.potted)||0);
+ const validOwned=Array.isArray(profile.owned)?profile.owned.filter(id=>cues.some(c=>c.id===id)):[];
+ state.owned=new Set(validOwned.length?validOwned:['wood','cobalt','carbon']);
+ state.cueId=cues.some(c=>c.id===profile.cue_id&&state.owned.has(c.id))?profile.cue_id:'wood';
+ state.skin=['green','blue','purple','red'].includes(profile.skin)?profile.skin:'red';
+ cloudProfileReady=true;
+ localSave();
+ updateNameControls();
+ updateHud();
+ $('accountName').textContent=state.userName;
+ $('accountBar').hidden=false;
+ $('authGate').hidden=true;
+}
+function setAuthMode(mode){
+ authMode=mode==='register'?'register':'login';
+ const registering=authMode==='register';
+ $('loginTab').classList.toggle('active',!registering);
+ $('registerTab').classList.toggle('active',registering);
+ $('loginTab').setAttribute('aria-selected',String(!registering));
+ $('registerTab').setAttribute('aria-selected',String(registering));
+ $('authPassword').autocomplete=registering?'new-password':'current-password';
+ $('authTitle').textContent=registering?'Crea tu cuenta':'Inicia sesión';
+ $('authSubtitle').textContent=registering?'Elige un nombre de usuario y una contraseña. No necesitas correo ni teléfono.':'Escribe el mismo nombre de usuario y contraseña que registraste.';
+ $('authSubmit').textContent=registering?'Crear cuenta gratis':'Entrar al juego';
+ setAuthFeedback('',false);
+}
+async function initializeAuth(){
+ const savedToken=localStorage.getItem('mesa8-auth-token');
+ if(!savedToken){
+  authToken=null;cloudProfileReady=false;
+  $('accountBar').hidden=true;$('authGate').hidden=false;
+  updateNameControls();
+  return;
+ }
+ try{
+  const data=await callAccountApi('get_profile',{},savedToken);
+  localStorage.setItem('mesa8-auth-token',savedToken);
+  applyAccountProfile(data.username,data.profile,savedToken);
+  setAuthFeedback('',false);
+ }catch(error){
+  if(error.status===401){
+   localStorage.removeItem('mesa8-auth-token');
+   authToken=null;cloudProfileReady=false;
+   $('accountBar').hidden=true;$('authGate').hidden=false;
+   setAuthFeedback('Tu sesión venció. Inicia sesión con tu nombre y contraseña.',false);
+  }else{
+   authToken=savedToken;cloudProfileReady=false;
+   $('accountBar').hidden=true;$('authGate').hidden=false;
+   setAuthFeedback('No se pudo conectar con el servidor de cuentas. '+(error.message||''),true);
+  }
+  updateNameControls();
+ }
+}
+async function submitAuthForm(event){
+ event.preventDefault();
+ const username=$('authUsername').value.replace(/\s+/g,' ').trim().slice(0,18);
+ const password=$('authPassword').value;
+ if([...username].length<3||username.includes('@')){
+  setAuthFeedback('Escribe un nombre de usuario de 3 a 18 caracteres. No introduzcas un correo.',true);return;
+ }
+ if(password.length<8||password.length>128){
+  setAuthFeedback('La contraseña debe tener entre 8 y 128 caracteres.',true);return;
+ }
+ const button=$('authSubmit');
+ button.disabled=true;
+ button.textContent=authMode==='register'?'Creando cuenta…':'Verificando…';
+ setAuthFeedback('',false);
+ try{
+  const action=authMode==='register'?'signup':'login';
+  const data=await callAccountApi(action,{username,password},null);
+  if(!data.token||!data.profile||!data.username)throw new Error('El servidor devolvió una cuenta incompleta.');
+  localStorage.setItem('mesa8-auth-token',data.token);
+  $('authPassword').value='';
+  applyAccountProfile(data.username,data.profile,data.token);
+  setAuthFeedback(authMode==='register'?'¡Cuenta creada! Tu progreso se guardará con este nombre.':'Sesión iniciada. Tu progreso se ha recuperado.',false);
+ }catch(error){
+  let message=String(error.message||'No se pudo completar la solicitud.');
+  if(error.status===409)message='Ese nombre de usuario ya está ocupado. Elige otro o inicia sesión.';
+  else if(error.status===401)message='Nombre de usuario o contraseña incorrectos.';
+  setAuthFeedback(message,true);
+ }finally{
+  button.disabled=false;
+  button.textContent=authMode==='register'?'Crear cuenta gratis':'Entrar al juego';
+ }
+}
+async function signOutAccount(){
+ const button=$('signOutBtn');button.disabled=true;
+ try{
+  if(state.net.channel)await leaveRoom();
+  if(authToken)await callAccountApi('logout',{},authToken);
+ }catch(error){
+  console.warn('MESA 8 logout:',error);
+ }finally{
+  localStorage.removeItem('mesa8-auth-token');
+  authToken=null;cloudProfileReady=false;
+  $('accountBar').hidden=true;$('authGate').hidden=false;
+  $('authPassword').value='';$('authUsername').value='';
+  setAuthMode('login');updateNameControls();
+  button.disabled=false;
+ }
 }
 async function updateOnlinePresenceName(){
  const ch=state.net.channel,role=state.net.role;
@@ -387,7 +629,7 @@ function updateHud(skipCues){
  $('playerCard0').classList.toggle('active',state.turn===0&&!state.gameOver);
  $('playerCard1').classList.toggle('active',state.turn===1&&!state.gameOver);
  $('winsTop').textContent=state.wins;$('coinsTop').textContent=state.coins;
- $('potStat').textContent=state.potted;$('matchStat').textContent=state.played;
+ $('potStat').textContent=state.potted;$('matchStat').textContent=state.played;$('lossStat').textContent=state.losses;
  $('powerValue').textContent=Math.round(state.power*100)+'%';
  $('cueCount').textContent=state.owned.size+' / '+cues.length;
  $('turnHint').textContent=state.gameOver?'Partida terminada: puedes iniciar otra mesa.':state.animating?'Las bolas están en movimiento…':state.ballInHand&&canControlTurn()?'Falta: haz clic en la mesa para colocar la blanca.':state.mode!=='practice'&&state.mode!=='race'&&state.breakShot?'Saque inicial: mesa abierta.':state.turn===0?'Tu turno: apunta y prepara el tiro.':state.mode==='local'?'Turno del Jugador 2.':'Turno del rival.';
@@ -720,6 +962,11 @@ $('helpBtn').addEventListener('click',()=>{
 });
 $('joinRoomBtn').addEventListener('click',()=>connectToRoom());
 $('copyRoomBtn').addEventListener('click',()=>shareRoom());
+$('loginTab').addEventListener('click',()=>setAuthMode('login'));
+$('registerTab').addEventListener('click',()=>setAuthMode('register'));
+$('authForm').addEventListener('submit',submitAuthForm);
+$('signOutBtn').addEventListener('click',signOutAccount);
+$('userName').addEventListener('blur',updateAccountDisplayName);
 $('roomCode').addEventListener('keydown',e=>{if(e.key==='Enter')connectToRoom()});
 window.addEventListener('keydown',e=>{
  const active=document.activeElement;
@@ -949,9 +1196,9 @@ function endMatch(winner,message){
  state.gameOver=true;state.animating=false;state.aiming=false;state.winner=winner;state.winnerText=message||playerName(winner)+' gana';
  if(state.mode==='online'){
   if(winner===state.net.role){state.wins++;state.coins+=70;tell('¡Ganaste la partida! +70 monedas de recompensa.','good');showToast('🏆 Victoria: +70 monedas')}
-  else{tell('La partida terminó. ¡A por la siguiente!','warn');state.coins+=10}
+  else{state.losses++;tell('La partida terminó. ¡A por la siguiente!','warn');state.coins+=10}
  }else if(winner===0){state.wins++;state.coins+=70;tell('¡Ganaste la partida! +70 monedas de recompensa.','good');showToast('🏆 Victoria: +70 monedas')}
- else{tell(state.mode==='local'?'¡Punto para el Jugador 2!':'Esta vez ganó el rival. ¡Inténtalo de nuevo!','warn');state.coins+=10}
+ else{state.losses++;tell(state.mode==='local'?'¡Punto para el Jugador 2!':'Esta vez ganó el rival. ¡Inténtalo de nuevo!','warn');state.coins+=10}
  updateHud();save();draw();broadcastGameState(true);
 }
 function cpuTurn(){
@@ -1004,8 +1251,8 @@ function persistRoomSnapshot(snapshot,force){
  const payload={room_code:state.net.room,room_state:snapshot,updated_at:new Date().toISOString(),expires_at:new Date(now+24*60*60*1000).toISOString()};
  // Serialize writes so an older network request cannot overwrite a more recent frame.
  state.net.persistChain=state.net.persistChain.catch(()=>{}).then(async()=>{
-  if(!supabaseClient)throw new Error('Supabase aún no está conectado');
-  const {error}=await supabaseClient.from('mesa8_rooms').upsert(payload,{onConflict:'room_code'});
+  if(!roomClient)throw new Error('Supabase de salas aún no está conectado');
+  const {error}=await roomClient.from('mesa8_rooms').upsert(payload,{onConflict:'room_code'});
   if(error)throw error;
   state.net.persistError=false;
  }).catch(error=>{
@@ -1015,8 +1262,8 @@ function persistRoomSnapshot(snapshot,force){
  });
 }
 async function loadRoomSnapshot(room){
- if(!supabaseClient)throw new Error('Supabase aún no está conectado');
- const {data:row,error}=await supabaseClient.from('mesa8_rooms').select('room_code,room_state,updated_at,expires_at').eq('room_code',room).maybeSingle();
+ if(!roomClient)throw new Error('Supabase de salas aún no está conectado');
+ const {data:row,error}=await roomClient.from('mesa8_rooms').select('room_code,room_state,updated_at,expires_at').eq('room_code',room).maybeSingle();
  if(error)throw error;
  if(!row)return null;
  if(row.expires_at&&Date.parse(row.expires_at)<=Date.now())return null;
@@ -1026,7 +1273,7 @@ async function loadRoomSnapshot(room){
 }
 async function pruneExpiredSnapshots(){
  try{
-  if(supabaseClient)await supabaseClient.from('mesa8_rooms').delete().lt('expires_at',new Date().toISOString());
+  if(roomClient)await roomClient.from('mesa8_rooms').delete().lt('expires_at',new Date().toISOString());
  }catch(e){/* Removing old snapshots is optional; gameplay uses Realtime. */}
 }
 function broadcastGameState(force){
@@ -1051,7 +1298,7 @@ function applyRemoteGameState(p,restoreOwnSnapshot){
  $('power').value=Math.round(state.power*100);$('powerValue').textContent=Math.round(state.power*100)+'%';
  if(!wasOver&&state.gameOver&&state.winner!==null&&state.net.role>=0){
   if(state.winner===state.net.role){state.wins++;state.coins+=70;showToast('🏆 Victoria: +70 monedas');tell('¡Ganaste la partida! +70 monedas de recompensa.','good')}
-  else{state.coins+=10;tell('La partida terminó. ¡A por la siguiente!','warn')}
+  else{state.losses++;state.coins+=10;tell('La partida terminó. ¡A por la siguiente!','warn')}
   save();
  }
  updateHud(true);draw();
@@ -1080,7 +1327,11 @@ function refreshPresence(){
    else resetMatch(true);
    setNetStatus('Conectado · Jugador 1 · '+Math.min(2,state.net.players.length)+'/2','online');
   }).catch(()=>{
-   if(state.net.room===room&&state.net.role===0)resetMatch(true);
+   // Si falla la lectura de la copia de respaldo, conserva la mesa actual y usa Realtime.
+   if(state.net.room===room&&state.net.role===0){
+    setNetStatus('Conectado · Jugador 1 · sincronización en vivo','online');
+    broadcastGameState(true);
+   }
   });
  }else if(state.net.role===0&&previousCount<players.length&&players.filter(p=>Number(p.role)>=0).length>=2){
   broadcastGameState(true);
@@ -1098,7 +1349,7 @@ function refreshPresence(){
 async function leaveRoom(){
  const ch=state.net.channel;state.net.channel=null;state.net.connected=false;state.net.role=-1;state.net.players=[];state.net.room='';state.net.joinedAt=0;state.net.activeShooter=0;state.net.roomInitialized=false;state.net.requestedState=false;state.net.lastSent=0;state.net.lastPersisted=0;state.net.persistError=false;
  $('joinRoomBtn').textContent='Conectar';$('copyRoomBtn').disabled=true;setNetStatus('Sin conexión','');
- if(ch&&supabaseClient){try{await supabaseClient.removeChannel(ch)}catch(e){}}
+ if(ch&&roomClient){try{await roomClient.removeChannel(ch)}catch(e){}}
  updateHud(true);
 }
 async function connectToRoom(){
@@ -1113,9 +1364,9 @@ async function connectToRoom(){
  $('joinRoomBtn').disabled=true;setNetStatus('Conectando a la sala…','');
  pruneExpiredSnapshots();
  try{
-  if(!supabaseClient)supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{realtime:{params:{eventsPerSecond:25}}});
+  getRoomClient();
   state.net.room=room;state.net.connected=false;state.net.role=-1;state.net.players=[];state.net.roomInitialized=false;state.net.requestedState=false;state.net.lastSent=0;
-  const channel=supabaseClient.channel('mesa8-room-'+room,{config:{broadcast:{self:false},presence:{key:state.net.playerId}}});
+  const channel=roomClient.channel('mesa8-room-'+room,{config:{broadcast:{self:false},presence:{key:state.net.playerId}}});
   state.net.channel=channel;
   channel.on('broadcast',{event:'game_state'},message=>applyRemoteGameState(message.payload));
   channel.on('broadcast',{event:'request_state'},message=>{if(message.payload&&message.payload.room===state.net.room&&state.net.role===0)broadcastGameState(true)});
@@ -1184,6 +1435,8 @@ if(inviteRoom){state.mode='online';$('roomCode').value=inviteRoom.toUpperCase().
 $('gameMode').value=state.mode;
 $('onlineControls').style.display=state.mode==='online'?'block':'none';
 updateNameControls();
+setAuthMode('login');
+initializeAuth();
 if(!['green','blue','purple','red'].includes(state.skin))state.skin='red';
 document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b.dataset.skin===state.skin));
 resetMatch(true);
