@@ -104,6 +104,33 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
 @media(max-width:1050px){.layout{grid-template-columns:minmax(0,1fr) 270px;gap:12px}.panel{padding:13px}.cue-option{gap:7px}.cue-preview{width:39px;height:42px}}
 @media(max-width:790px){.app{padding:13px 10px 20px}.layout{grid-template-columns:1fr}.sidebar{display:grid;grid-template-columns:1fr 1fr;align-items:start}.panel.cues-panel{grid-row:span 2}.topbar{align-items:flex-start}.pill.record{display:none}.scoreboard{grid-template-columns:1fr auto 1fr}.player-card{padding:9px}.avatar{width:30px;height:30px;border-radius:9px}.player-name{font-size:11px}.player-detail{font-size:9px}.score-number{font-size:18px}.control-strip{padding:11px;grid-template-columns:1fr}.action-buttons .btn{flex:1}.table-caption{font-size:8px;left:13px;top:12px}}
 @media(max-width:520px){.brand-mark{width:40px;height:40px}.brand p{font-size:9px}.top-right .pill{font-size:11px;padding:8px 10px}.sidebar{grid-template-columns:1fr}.panel.cues-panel{grid-row:auto}.cue-list{display:grid;grid-template-columns:1fr 1fr}.cue-option{align-items:flex-start;padding:8px}.cue-preview{width:32px;height:36px}.cue-preview svg{width:27px;height:27px}.cue-option .cue-price{display:block;margin-top:4px}.power-vertical{height:116px}.power-scale{height:116px}.scoreboard{gap:4px}.player-card{gap:6px}.table-frame{padding:5px;border-radius:12px}.table-inner{border-radius:8px}.table-tip{font-size:10px}.btn{padding:11px 10px}}
+/* Autenticación de jugadores */
+.account-pill{display:flex;align-items:center;gap:9px;max-width:260px;padding:7px 9px 7px 12px;border:1px solid var(--line);background:#102321;border-radius:999px;color:#cbe5d7;font-size:11px}
+.account-pill[hidden]{display:none}
+.account-pill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:155px}
+.account-pill button{border:1px solid #416357;background:#193532;color:#dff4e8;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:800}
+.auth-gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:20px;background:rgba(3,12,11,.94);backdrop-filter:blur(12px)}
+.auth-gate[hidden]{display:none}
+.auth-card{width:min(100%,430px);padding:26px;border:1px solid #31584d;border-radius:22px;background:linear-gradient(155deg,#15312d,#0b1c1b);box-shadow:0 25px 80px #0009}
+.auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:19px}
+.auth-brand-mark{width:46px;height:46px;display:grid;place-items:center;border-radius:14px;background:linear-gradient(135deg,#7de4b8,#2b9c74);color:#09231b;font-size:25px;font-weight:1000}
+.auth-brand h2{margin:0;font-size:19px;letter-spacing:.08em}
+.auth-brand p{margin:4px 0 0;color:var(--muted);font-size:10px;letter-spacing:.15em;text-transform:uppercase}
+.auth-title{margin:0 0 6px;font-size:22px}
+.auth-subtitle{margin:0 0 18px;color:var(--muted);font-size:12px;line-height:1.6}
+.auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:4px;margin-bottom:17px;border:1px solid #294a42;border-radius:12px;background:#091a18}
+.auth-tab{border:0;border-radius:9px;padding:10px;background:transparent;color:#a9c8ba;font-size:12px;font-weight:850}
+.auth-tab.active{background:#245541;color:#dfffee}
+.auth-field{display:block;margin:12px 0}
+.auth-field span{display:block;margin-bottom:7px;color:#b9d4c6;font-size:10px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
+.auth-input{display:block;width:100%;border:1px solid #3a6155;border-radius:10px;padding:12px;background:#0b1b19;color:#f2fbf5;font-size:13px;outline:none}
+.auth-input:focus{border-color:var(--mint);box-shadow:0 0 0 2px #69e0b222}
+.auth-submit{width:100%;margin-top:8px;border:1px solid #a7f8d1;border-radius:11px;padding:13px;background:linear-gradient(135deg,#88ebbd,#4cc993);color:#06281b;font-size:13px;font-weight:900}
+.auth-submit:disabled{opacity:.55;cursor:wait}
+.auth-feedback{min-height:20px;margin:12px 0 0;color:#a9f1cd;font-size:11px;line-height:1.5}
+.auth-feedback.error{color:#ffab9d}
+.auth-footer{margin:10px 0 0;color:#839f93;font-size:10px;line-height:1.6;text-align:center}
+@media(max-width:520px){.account-pill{max-width:180px;gap:6px;padding:6px 7px 6px 9px}.account-pill span{max-width:90px}.auth-card{padding:21px}.auth-title{font-size:20px}} 
 </style>
 </head>
 <body>
@@ -116,6 +143,7 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
     <div class="top-right">
       <div class="pill record">🏆 Victorias <strong id="winsTop">0</strong></div>
       <div class="pill">🪙 <strong id="coinsTop">120</strong> monedas</div>
+      <div class="account-pill" id="accountBar" hidden><span id="accountEmail"></span><button type="button" id="signOutBtn">Salir</button></div>
     </div>
   </header>
 
@@ -217,9 +245,41 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
       </section>
     </aside>
   </main>
-  <footer class="footnote">MESA 8 es un juego de billar original para navegador, inspirado en las reglas clásicas de pool.<br>Tu progreso se guarda en este dispositivo. No requiere cuenta ni instalación.</footer>
+  <footer class="footnote">MESA 8 es un juego de billar original para navegador, inspirado en las reglas clásicas de pool.<br>Necesitas una cuenta gratuita para ingresar. Tu progreso de juego se guarda en este dispositivo.</footer>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<section class="auth-gate" id="authGate" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="auth-brand-mark">8</div>
+      <div><h2>MESA 8</h2><p>Pool Arena · Acceso de jugadores</p></div>
+    </div>
+    <h1 class="auth-title" id="authTitle">Inicia sesión</h1>
+    <p class="auth-subtitle" id="authSubtitle">Ingresa a tu cuenta para continuar y jugar con otras personas.</p>
+    <div class="auth-tabs" role="tablist" aria-label="Acceso a MESA 8">
+      <button class="auth-tab active" id="loginTab" type="button" role="tab" aria-selected="true">Iniciar sesión</button>
+      <button class="auth-tab" id="registerTab" type="button" role="tab" aria-selected="false">Crear cuenta</button>
+    </div>
+    <form id="authForm">
+      <label class="auth-field" id="authNameWrap" hidden>
+        <span>Nombre de jugador</span>
+        <input class="auth-input" id="authName" type="text" maxlength="18" minlength="2" autocomplete="nickname" placeholder="Tu nombre en MESA 8">
+      </label>
+      <label class="auth-field">
+        <span>Correo electrónico</span>
+        <input class="auth-input" id="authEmail" type="email" maxlength="254" autocomplete="email" required placeholder="nombre@correo.com">
+      </label>
+      <label class="auth-field">
+        <span>Contraseña</span>
+        <input class="auth-input" id="authPassword" type="password" minlength="8" autocomplete="current-password" required placeholder="Mínimo 8 caracteres">
+      </label>
+      <button class="auth-submit" id="authSubmit" type="submit">Entrar al juego</button>
+    </form>
+    <p class="auth-feedback" id="authFeedback" role="status" aria-live="polite"></p>
+    <p class="auth-footer">Las contraseñas son gestionadas de forma segura por Supabase Auth. Nunca se guardan en el código del juego.</p>
+  </div>
+</section>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -257,6 +317,8 @@ const SUPABASE_KEY='sb_publishable_WgNHhhK7dS5yP32ZOn3q1g_fZ5mIyVu';
 function getPlayerId(){try{let id=sessionStorage.getItem('mesa8-player-id');if(!id){id='p-'+Math.random().toString(36).slice(2,9)+'-'+Date.now().toString(36);sessionStorage.setItem('mesa8-player-id',id)}return id}catch(e){return 'p-'+Math.random().toString(36).slice(2,12)}}
 state.net={client:null,channel:null,connected:false,room:'',role:-1,players:[],playerId:getPlayerId(),joinedAt:0,activeShooter:0,lastSent:0,lastPersisted:0,persistChain:Promise.resolve(),persistError:false,roomInitialized:false,requestedState:false};
 let supabaseClient=null;
+let authUser=null;
+let authMode='login';
 const $=id=>document.getElementById(id);
 function readSave(){try{return JSON.parse(localStorage.getItem('mesa8-save')||'{}')}catch(e){return {}}}
 function save(){
@@ -281,6 +343,132 @@ function updateNameControls(){
  $('localPlayer2NameWrap').style.display=state.mode==='local'?'block':'none';
  $('userNameLabel').textContent=state.mode==='local'?'NOMBRE DEL JUGADOR 1':state.mode==='online'?'TU NOMBRE EN LÍNEA':'TU NOMBRE';
  $('nameModeHint').textContent=state.mode==='online'?'Tu nombre se compartirá con la otra persona de la sala.':state.mode==='local'?'Cada jugador puede escribir su propio nombre.':'Tu nombre aparecerá en el marcador.';
+}
+function setAuthFeedback(message,isError){
+ const box=$('authFeedback');
+ box.textContent=message||'';
+ box.className='auth-feedback'+(isError?' error':'');
+}
+function setAuthMode(mode){
+ authMode=mode==='register'?'register':'login';
+ const registering=authMode==='register';
+ $('loginTab').classList.toggle('active',!registering);
+ $('registerTab').classList.toggle('active',registering);
+ $('loginTab').setAttribute('aria-selected',String(!registering));
+ $('registerTab').setAttribute('aria-selected',String(registering));
+ $('authNameWrap').hidden=!registering;
+ $('authName').required=registering;
+ $('authPassword').autocomplete=registering?'new-password':'current-password';
+ $('authTitle').textContent=registering?'Crea tu cuenta':'Inicia sesión';
+ $('authSubtitle').textContent=registering?'Regístrate gratis con tu correo, una contraseña y el nombre que aparecerá en las partidas.':'Ingresa a tu cuenta para continuar y jugar con otras personas.';
+ $('authSubmit').textContent=registering?'Crear cuenta gratis':'Entrar al juego';
+ setAuthFeedback('',false);
+}
+function applyAuthSession(session){
+ authUser=session?.user||null;
+ $('authGate').hidden=!!authUser;
+ $('accountBar').hidden=!authUser;
+ if(authUser){
+  $('accountEmail').textContent=authUser.email||'Cuenta activa';
+  const displayName=String(authUser.user_metadata?.display_name||'').replace(/\\s+/g,' ').trim().slice(0,18);
+  if(displayName&&state.userName!==displayName){
+   state.userName=displayName;
+   updateNameControls();
+   save();
+   updateHud(true);
+  }
+ }else{
+  $('accountEmail').textContent='';
+ }
+}
+async function initializeAuth(){
+ try{
+  if(!window.supabase||typeof window.supabase.createClient!=='function')throw new Error('No se pudo cargar el servicio de cuentas. Recarga la página.');
+  if(!supabaseClient)supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+   auth:{autoRefreshToken:true,persistSession:true,detectSessionInUrl:true}
+  });
+  const {data,error}=await supabaseClient.auth.getSession();
+  if(error)throw error;
+  applyAuthSession(data.session);
+  supabaseClient.auth.onAuthStateChange((_event,session)=>applyAuthSession(session));
+ }catch(error){
+  setAuthFeedback('No se pudo iniciar el acceso: '+(error.message||'error desconocido'),true);
+ }
+}
+async function submitAuthForm(event){
+ event.preventDefault();
+ if(!supabaseClient){await initializeAuth();if(!supabaseClient)return}
+ const email=$('authEmail').value.trim().toLowerCase();
+ const password=$('authPassword').value;
+ const name=$('authName').value.replace(/\\s+/g,' ').trim().slice(0,18);
+ if(authMode==='register'&&name.length<2){setAuthFeedback('Escribe un nombre de al menos 2 caracteres.',true);return}
+ if(password.length<8){setAuthFeedback('La contraseña debe tener al menos 8 caracteres.',true);return}
+ const button=$('authSubmit');
+ button.disabled=true;
+ button.textContent=authMode==='register'?'Creando cuenta…':'Verificando…';
+ setAuthFeedback('',false);
+ try{
+  if(authMode==='register'){
+   const {data,error}=await supabaseClient.auth.signUp({
+    email,password,
+    options:{
+     data:{display_name:name},
+     emailRedirectTo:window.location.href
+    }
+   });
+   if(error)throw error;
+   if(data.session){
+    state.userName=name;
+    save();
+    applyAuthSession(data.session);
+    setAuthFeedback('¡Cuenta creada! Ya puedes jugar.',false);
+   }else{
+    $('authEmail').value=email;
+    setAuthMode('login');
+    setAuthFeedback('Cuenta creada. Revisa tu correo y confirma la dirección para activar el acceso a MESA 8.',false);
+   }
+  }else{
+   const {data,error}=await supabaseClient.auth.signInWithPassword({email,password});
+   if(error)throw error;
+   if(data.session){
+    applyAuthSession(data.session);
+    setAuthFeedback('',false);
+   }
+  }
+ }catch(error){
+  const raw=String(error.message||'');
+  let message=raw;
+  if(/invalid login credentials/i.test(raw))message='Correo o contraseña incorrectos.';
+  else if(/user already registered/i.test(raw))message='Ese correo ya tiene una cuenta. Inicia sesión.';
+  else if(/password should be at least/i.test(raw))message='La contraseña no cumple los requisitos mínimos.';
+  else if(/email not confirmed/i.test(raw))message='Confirma tu correo desde el enlace que te enviamos antes de iniciar sesión.';
+  setAuthFeedback(message||'No se pudo completar la solicitud. Inténtalo de nuevo.',true);
+ }finally{
+  button.disabled=false;
+  button.textContent=authMode==='register'?'Crear cuenta gratis':'Entrar al juego';
+ }
+}
+async function signOutAccount(){
+ if(!supabaseClient)return;
+ const button=$('signOutBtn');button.disabled=true;
+ try{
+  if(state.net.channel)await leaveRoom();
+  const {error}=await supabaseClient.auth.signOut();
+  if(error)throw error;
+  setAuthMode('login');
+  $('authPassword').value='';
+  setAuthFeedback('Has cerrado sesión.',false);
+ }catch(error){
+  showToast('No se pudo cerrar la sesión.');
+  console.error('MESA 8 sign out:',error);
+ }finally{button.disabled=false}
+}
+async function updateAccountDisplayName(){
+ if(!supabaseClient||!authUser)return;
+ const name=getUserName();
+ if(name.length<2)return;
+ const {error}=await supabaseClient.auth.updateUser({data:{display_name:name}});
+ if(error)showToast('No se pudo actualizar el nombre de tu cuenta.');
 }
 async function updateOnlinePresenceName(){
  const ch=state.net.channel,role=state.net.role;
@@ -720,6 +908,11 @@ $('helpBtn').addEventListener('click',()=>{
 });
 $('joinRoomBtn').addEventListener('click',()=>connectToRoom());
 $('copyRoomBtn').addEventListener('click',()=>shareRoom());
+$('loginTab').addEventListener('click',()=>setAuthMode('login'));
+$('registerTab').addEventListener('click',()=>setAuthMode('register'));
+$('authForm').addEventListener('submit',submitAuthForm);
+$('signOutBtn').addEventListener('click',signOutAccount);
+$('userName').addEventListener('blur',updateAccountDisplayName);
 $('roomCode').addEventListener('keydown',e=>{if(e.key==='Enter')connectToRoom()});
 window.addEventListener('keydown',e=>{
  const active=document.activeElement;
@@ -1184,6 +1377,8 @@ if(inviteRoom){state.mode='online';$('roomCode').value=inviteRoom.toUpperCase().
 $('gameMode').value=state.mode;
 $('onlineControls').style.display=state.mode==='online'?'block':'none';
 updateNameControls();
+setAuthMode('login');
+initializeAuth();
 if(!['green','blue','purple','red'].includes(state.skin))state.skin='red';
 document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b.dataset.skin===state.skin));
 resetMatch(true);
