@@ -1,10 +1,32 @@
--- MESA 8: perfil y progreso persistente por cuenta de jugador.
+-- MESA 8: cuentas con nombre de usuario y contraseña, sin correos ficticios.
 -- Ejecuta este archivo una sola vez en Supabase > SQL Editor.
+-- No se conceden permisos de acceso directo a anon/authenticated.
+-- La Edge Function mesa8-account es la única que lee y modifica estas tablas.
+
+create table if not exists public.mesa8_accounts (
+  id uuid primary key default gen_random_uuid(),
+  username text not null check (char_length(username) between 3 and 18),
+  username_key text not null unique,
+  password_salt text not null,
+  password_hash text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.mesa8_sessions (
+  id uuid primary key default gen_random_uuid(),
+  account_id uuid not null references public.mesa8_accounts(id) on delete cascade,
+  token_hash text not null unique,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists mesa8_sessions_account_id_idx
+  on public.mesa8_sessions(account_id);
+create index if not exists mesa8_sessions_expires_at_idx
+  on public.mesa8_sessions(expires_at);
 
 create table if not exists public.mesa8_profiles (
-  user_id uuid primary key references auth.users(id) on delete cascade,
-  username text not null,
-  username_key text not null unique,
+  account_id uuid primary key references public.mesa8_accounts(id) on delete cascade,
   wins integer not null default 0 check (wins >= 0),
   losses integer not null default 0 check (losses >= 0),
   coins integer not null default 120 check (coins >= 0),
@@ -16,31 +38,14 @@ create table if not exists public.mesa8_profiles (
   updated_at timestamptz not null default now()
 );
 
+alter table public.mesa8_accounts enable row level security;
+alter table public.mesa8_sessions enable row level security;
 alter table public.mesa8_profiles enable row level security;
 
-grant select, insert, update on public.mesa8_profiles to authenticated;
+revoke all on public.mesa8_accounts from anon, authenticated;
+revoke all on public.mesa8_sessions from anon, authenticated;
+revoke all on public.mesa8_profiles from anon, authenticated;
 
-drop policy if exists "Players can read their own MESA 8 profile"
-  on public.mesa8_profiles;
-create policy "Players can read their own MESA 8 profile"
-  on public.mesa8_profiles
-  for select
-  to authenticated
-  using ((select auth.uid()) = user_id);
-
-drop policy if exists "Players can create their own MESA 8 profile"
-  on public.mesa8_profiles;
-create policy "Players can create their own MESA 8 profile"
-  on public.mesa8_profiles
-  for insert
-  to authenticated
-  with check ((select auth.uid()) = user_id);
-
-drop policy if exists "Players can update their own MESA 8 profile"
-  on public.mesa8_profiles;
-create policy "Players can update their own MESA 8 profile"
-  on public.mesa8_profiles
-  for update
-  to authenticated
-  using ((select auth.uid()) = user_id)
-  with check ((select auth.uid()) = user_id);
+grant all on public.mesa8_accounts to service_role;
+grant all on public.mesa8_sessions to service_role;
+grant all on public.mesa8_profiles to service_role;
