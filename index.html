@@ -686,7 +686,7 @@ function updateHud(skipCues){
  $('playerCard0').classList.toggle('active',state.turn===0&&!state.gameOver);
  $('playerCard1').classList.toggle('active',state.turn===1&&!state.gameOver);
  $('winsTop').textContent=state.wins;$('coinsTop').textContent=state.coins;
- $('potStat').textContent=state.potted;$('matchStat').textContent=state.played;
+ $('potStat').textContent=state.potted;$('matchStat').textContent=state.played;$('lossStat').textContent=state.losses;
  $('powerValue').textContent=Math.round(state.power*100)+'%';
  $('cueCount').textContent=state.owned.size+' / '+cues.length;
  $('turnHint').textContent=state.gameOver?'Partida terminada: puedes iniciar otra mesa.':state.animating?'Las bolas están en movimiento…':state.ballInHand&&canControlTurn()?'Falta: haz clic en la mesa para colocar la blanca.':state.mode!=='practice'&&state.mode!=='race'&&state.breakShot?'Saque inicial: mesa abierta.':state.turn===0?'Tu turno: apunta y prepara el tiro.':state.mode==='local'?'Turno del Jugador 2.':'Turno del rival.';
@@ -1253,9 +1253,9 @@ function endMatch(winner,message){
  state.gameOver=true;state.animating=false;state.aiming=false;state.winner=winner;state.winnerText=message||playerName(winner)+' gana';
  if(state.mode==='online'){
   if(winner===state.net.role){state.wins++;state.coins+=70;tell('¡Ganaste la partida! +70 monedas de recompensa.','good');showToast('🏆 Victoria: +70 monedas')}
-  else{tell('La partida terminó. ¡A por la siguiente!','warn');state.coins+=10}
+  else{state.losses++;tell('La partida terminó. ¡A por la siguiente!','warn');state.coins+=10}
  }else if(winner===0){state.wins++;state.coins+=70;tell('¡Ganaste la partida! +70 monedas de recompensa.','good');showToast('🏆 Victoria: +70 monedas')}
- else{tell(state.mode==='local'?'¡Punto para el Jugador 2!':'Esta vez ganó el rival. ¡Inténtalo de nuevo!','warn');state.coins+=10}
+ else{state.losses++;tell(state.mode==='local'?'¡Punto para el Jugador 2!':'Esta vez ganó el rival. ¡Inténtalo de nuevo!','warn');state.coins+=10}
  updateHud();save();draw();broadcastGameState(true);
 }
 function cpuTurn(){
@@ -1308,8 +1308,8 @@ function persistRoomSnapshot(snapshot,force){
  const payload={room_code:state.net.room,room_state:snapshot,updated_at:new Date().toISOString(),expires_at:new Date(now+24*60*60*1000).toISOString()};
  // Serialize writes so an older network request cannot overwrite a more recent frame.
  state.net.persistChain=state.net.persistChain.catch(()=>{}).then(async()=>{
-  if(!supabaseClient)throw new Error('Supabase aún no está conectado');
-  const {error}=await supabaseClient.from('mesa8_rooms').upsert(payload,{onConflict:'room_code'});
+  if(!roomClient)throw new Error('Supabase de salas aún no está conectado');
+  const {error}=await roomClient.from('mesa8_rooms').upsert(payload,{onConflict:'room_code'});
   if(error)throw error;
   state.net.persistError=false;
  }).catch(error=>{
@@ -1319,8 +1319,8 @@ function persistRoomSnapshot(snapshot,force){
  });
 }
 async function loadRoomSnapshot(room){
- if(!supabaseClient)throw new Error('Supabase aún no está conectado');
- const {data:row,error}=await supabaseClient.from('mesa8_rooms').select('room_code,room_state,updated_at,expires_at').eq('room_code',room).maybeSingle();
+ if(!roomClient)throw new Error('Supabase de salas aún no está conectado');
+ const {data:row,error}=await roomClient.from('mesa8_rooms').select('room_code,room_state,updated_at,expires_at').eq('room_code',room).maybeSingle();
  if(error)throw error;
  if(!row)return null;
  if(row.expires_at&&Date.parse(row.expires_at)<=Date.now())return null;
@@ -1330,7 +1330,7 @@ async function loadRoomSnapshot(room){
 }
 async function pruneExpiredSnapshots(){
  try{
-  if(supabaseClient)await supabaseClient.from('mesa8_rooms').delete().lt('expires_at',new Date().toISOString());
+  if(roomClient)await roomClient.from('mesa8_rooms').delete().lt('expires_at',new Date().toISOString());
  }catch(e){/* Removing old snapshots is optional; gameplay uses Realtime. */}
 }
 function broadcastGameState(force){
@@ -1355,7 +1355,7 @@ function applyRemoteGameState(p,restoreOwnSnapshot){
  $('power').value=Math.round(state.power*100);$('powerValue').textContent=Math.round(state.power*100)+'%';
  if(!wasOver&&state.gameOver&&state.winner!==null&&state.net.role>=0){
   if(state.winner===state.net.role){state.wins++;state.coins+=70;showToast('🏆 Victoria: +70 monedas');tell('¡Ganaste la partida! +70 monedas de recompensa.','good')}
-  else{state.coins+=10;tell('La partida terminó. ¡A por la siguiente!','warn')}
+  else{state.losses++;state.coins+=10;tell('La partida terminó. ¡A por la siguiente!','warn')}
   save();
  }
  updateHud(true);draw();
@@ -1406,7 +1406,7 @@ function refreshPresence(){
 async function leaveRoom(){
  const ch=state.net.channel;state.net.channel=null;state.net.connected=false;state.net.role=-1;state.net.players=[];state.net.room='';state.net.joinedAt=0;state.net.activeShooter=0;state.net.roomInitialized=false;state.net.requestedState=false;state.net.lastSent=0;state.net.lastPersisted=0;state.net.persistError=false;
  $('joinRoomBtn').textContent='Conectar';$('copyRoomBtn').disabled=true;setNetStatus('Sin conexión','');
- if(ch&&supabaseClient){try{await supabaseClient.removeChannel(ch)}catch(e){}}
+ if(ch&&roomClient){try{await roomClient.removeChannel(ch)}catch(e){}}
  updateHud(true);
 }
 async function connectToRoom(){
@@ -1421,9 +1421,9 @@ async function connectToRoom(){
  $('joinRoomBtn').disabled=true;setNetStatus('Conectando a la sala…','');
  pruneExpiredSnapshots();
  try{
-  if(!supabaseClient)supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{realtime:{params:{eventsPerSecond:25}}});
+  getRoomClient();
   state.net.room=room;state.net.connected=false;state.net.role=-1;state.net.players=[];state.net.roomInitialized=false;state.net.requestedState=false;state.net.lastSent=0;
-  const channel=supabaseClient.channel('mesa8-room-'+room,{config:{broadcast:{self:false},presence:{key:state.net.playerId}}});
+  const channel=roomClient.channel('mesa8-room-'+room,{config:{broadcast:{self:false},presence:{key:state.net.playerId}}});
   state.net.channel=channel;
   channel.on('broadcast',{event:'game_state'},message=>applyRemoteGameState(message.payload));
   channel.on('broadcast',{event:'request_state'},message=>{if(message.payload&&message.payload.room===state.net.room&&state.net.role===0)broadcastGameState(true)});
