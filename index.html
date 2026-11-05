@@ -274,7 +274,7 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
       <button class="auth-submit" id="authSubmit" type="submit">Entrar al juego</button>
     </form>
     <p class="auth-feedback" id="authFeedback" role="status" aria-live="polite"></p>
-    <p class="auth-footer">No necesitas correo electrónico. Usa siempre el mismo nombre y contraseña en cada dispositivo. Como no hay correo asociado, no existe recuperación automática de contraseña.</p>
+    <p class="auth-footer">Antes del primer registro, el administrador debe desactivar “Confirm email” en Supabase. Usa siempre el mismo nombre y contraseña en todos tus dispositivos. Sin correo real no hay recuperación automática de contraseña.</p>
   </div>
 </section>
 
@@ -319,6 +319,7 @@ let authUser=null;
 let authMode='login';
 let cloudProfileReady=false;
 let cloudSaveTimer=null;
+let profileSaveChain=Promise.resolve();
 let profileLoadPromise=null;
 let profileLoadUserId=null;
 let loadedProfileUserId=null;
@@ -362,7 +363,12 @@ function save(){
  clearTimeout(cloudSaveTimer);
  cloudSaveTimer=setTimeout(()=>{
   const user=authUser;
-  writeCloudProfile(user).catch(error=>{
+  const snapshot=profilePayload(user);
+  profileSaveChain=profileSaveChain.catch(()=>{}).then(async()=>{
+   if(!authUser||authUser.id!==user.id)return;
+   const {error}=await supabaseClient.from('mesa8_profiles').upsert(snapshot,{onConflict:'user_id'});
+   if(error)throw error;
+  }).catch(error=>{
    console.warn('MESA 8: no se pudo sincronizar el progreso.',error);
    showToast('No se pudo guardar tu progreso en la nube.');
   });
