@@ -143,7 +143,7 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
     <div class="top-right">
       <div class="pill record">🏆 Victorias <strong id="winsTop">0</strong></div>
       <div class="pill">🪙 <strong id="coinsTop">120</strong> monedas</div>
-      <div class="account-pill" id="accountBar" hidden><span id="accountEmail"></span><button type="button" id="signOutBtn">Salir</button></div>
+      <div class="account-pill" id="accountBar" hidden><span id="accountName"></span><button type="button" id="signOutBtn">Salir</button></div>
     </div>
   </header>
 
@@ -237,6 +237,7 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
         <div class="mini-stats">
           <div class="stat"><b id="potStat">0</b><span>Bolas embocadas</span></div>
           <div class="stat"><b id="matchStat">0</b><span>Partidas jugadas</span></div>
+          <div class="stat"><b id="lossStat">0</b><span>Derrotas</span></div>
         </div>
         <div class="section-divider"></div>
         <div class="panel-head"><h2>Precisión</h2><small id="accuracyLabel">TACO ACTUAL</small></div>
@@ -245,7 +246,7 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
       </section>
     </aside>
   </main>
-  <footer class="footnote">MESA 8 es un juego de billar original para navegador, inspirado en las reglas clásicas de pool.<br>Necesitas una cuenta gratuita para ingresar. Tu progreso de juego se guarda en este dispositivo.</footer>
+  <footer class="footnote">MESA 8 es un juego de billar original para navegador, inspirado en las reglas clásicas de pool.<br>Inicia sesión con tu nombre de usuario para recuperar tu progreso en cualquier dispositivo.</footer>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -262,13 +263,9 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
       <button class="auth-tab" id="registerTab" type="button" role="tab" aria-selected="false">Crear cuenta</button>
     </div>
     <form id="authForm">
-      <label class="auth-field" id="authNameWrap" hidden>
-        <span>Nombre de jugador</span>
-        <input class="auth-input" id="authName" type="text" maxlength="18" minlength="2" autocomplete="nickname" placeholder="Tu nombre en MESA 8">
-      </label>
       <label class="auth-field">
-        <span>Correo electrónico</span>
-        <input class="auth-input" id="authEmail" type="email" maxlength="254" autocomplete="email" required placeholder="nombre@correo.com">
+        <span>Nombre de usuario</span>
+        <input class="auth-input" id="authUsername" type="text" maxlength="18" minlength="3" autocomplete="username" required placeholder="Ej. Nicolas_08">
       </label>
       <label class="auth-field">
         <span>Contraseña</span>
@@ -277,7 +274,7 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
       <button class="auth-submit" id="authSubmit" type="submit">Entrar al juego</button>
     </form>
     <p class="auth-feedback" id="authFeedback" role="status" aria-live="polite"></p>
-    <p class="auth-footer">Las contraseñas son gestionadas de forma segura por Supabase Auth. Nunca se guardan en el código del juego.</p>
+    <p class="auth-footer">No necesitas correo electrónico. Usa siempre el mismo nombre y contraseña en cada dispositivo. Como no hay correo asociado, no existe recuperación automática de contraseña.</p>
   </div>
 </section>
 
@@ -307,7 +304,7 @@ const state={
  balls:[],angle:0,power:.62,turn:0,scores:[0,0],groups:[null,null],mode:'cpu',
  aiming:true,drag:null,animating:false,gameOver:false,shotPocketed:[],shotFoul:false,firstHit:null,
  breakShot:true,ballInHand:false,shotRailHit:false,shotRailBalls:[],
- coins:saved.coins??120,wins:saved.wins??0,played:saved.played??0,potted:saved.potted??0,
+ coins:saved.coins??120,wins:saved.wins??0,losses:saved.losses??0,played:saved.played??0,potted:saved.potted??0,
  userName:saved.userName||'',localPlayer2Name:saved.localPlayer2Name||'',
  owned:new Set(saved.owned||['wood','cobalt','carbon']),cueId:saved.cueId||'wood',skin:saved.skin==='green'?'red':(saved.skin||'red'),
  lastTime:0,stillFrames:0,shotElapsed:0,turnStartedAt:Date.now(),turnTimerTurn:0,toastTimer:null,shotCount:0,roundAwarded:false
@@ -317,12 +314,67 @@ const SUPABASE_KEY='sb_publishable_WgNHhhK7dS5yP32ZOn3q1g_fZ5mIyVu';
 function getPlayerId(){try{let id=sessionStorage.getItem('mesa8-player-id');if(!id){id='p-'+Math.random().toString(36).slice(2,9)+'-'+Date.now().toString(36);sessionStorage.setItem('mesa8-player-id',id)}return id}catch(e){return 'p-'+Math.random().toString(36).slice(2,12)}}
 state.net={client:null,channel:null,connected:false,room:'',role:-1,players:[],playerId:getPlayerId(),joinedAt:0,activeShooter:0,lastSent:0,lastPersisted:0,persistChain:Promise.resolve(),persistError:false,roomInitialized:false,requestedState:false};
 let supabaseClient=null;
+let roomClient=null;
 let authUser=null;
 let authMode='login';
+let cloudProfileReady=false;
+let cloudSaveTimer=null;
+let profileLoadPromise=null;
+let profileLoadUserId=null;
+let loadedProfileUserId=null;
+let authListenerRegistered=false;
 const $=id=>document.getElementById(id);
 function readSave(){try{return JSON.parse(localStorage.getItem('mesa8-save')||'{}')}catch(e){return {}}}
+function normalizeUsername(value){
+ return String(value||'').normalize('NFKC').replace(/\s+/g,' ').trim().toLowerCase();
+}
+function usernameAuthAlias(value){
+ const canonical=normalizeUsername(value);
+ const bytes=new TextEncoder().encode(canonical);
+ let binary='';
+ for(let i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
+ const token=btoa(binary).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+ return 'u-'+token+'@players.mesa8.invalid';
+}
+function localSave(){
+ try{
+  localStorage.setItem('mesa8-save',JSON.stringify({
+   coins:state.coins,wins:state.wins,losses:state.losses,played:state.played,potted:state.potted,
+   owned:Array.from(state.owned),cueId:state.cueId,skin:state.skin,userName:state.userName,
+   localPlayer2Name:state.localPlayer2Name
+  }));
+ }catch(e){}
+}
+function profilePayload(user){
+ return {
+  user_id:user.id,username:state.userName,username_key:normalizeUsername(state.userName),
+  wins:state.wins,losses:state.losses,coins:state.coins,played:state.played,potted:state.potted,
+  owned:Array.from(state.owned),cue_id:state.cueId,skin:state.skin,updated_at:new Date().toISOString()
+ };
+}
+async function writeCloudProfile(user){
+ const {error}=await supabaseClient.from('mesa8_profiles').upsert(profilePayload(user),{onConflict:'user_id'});
+ if(error)throw error;
+}
 function save(){
- try{localStorage.setItem('mesa8-save',JSON.stringify({coins:state.coins,wins:state.wins,played:state.played,potted:state.potted,owned:Array.from(state.owned),cueId:state.cueId,skin:state.skin,userName:state.userName,localPlayer2Name:state.localPlayer2Name}))}catch(e){}
+ localSave();
+ if(!authUser||!cloudProfileReady||!supabaseClient)return;
+ clearTimeout(cloudSaveTimer);
+ cloudSaveTimer=setTimeout(()=>{
+  const user=authUser;
+  writeCloudProfile(user).catch(error=>{
+   console.warn('MESA 8: no se pudo sincronizar el progreso.',error);
+   showToast('No se pudo guardar tu progreso en la nube.');
+  });
+ },500);
+}
+function getRoomClient(){
+ if(!window.supabase||typeof window.supabase.createClient!=='function')throw new Error('Supabase no está disponible.');
+ if(!roomClient)roomClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{
+  auth:{autoRefreshToken:false,persistSession:false,detectSessionInUrl:false},
+  realtime:{params:{eventsPerSecond:25}}
+ });
+ return roomClient;
 }
 function currentCue(){return cues.find(c=>c.id===state.cueId)||cues[0]}
 function showToast(text){
@@ -343,6 +395,8 @@ function updateNameControls(){
  $('localPlayer2NameWrap').style.display=state.mode==='local'?'block':'none';
  $('userNameLabel').textContent=state.mode==='local'?'NOMBRE DEL JUGADOR 1':state.mode==='online'?'TU NOMBRE EN LÍNEA':'TU NOMBRE';
  $('nameModeHint').textContent=state.mode==='online'?'Tu nombre se compartirá con la otra persona de la sala.':state.mode==='local'?'Cada jugador puede escribir su propio nombre.':'Tu nombre aparecerá en el marcador.';
+ $('userName').readOnly=!!authUser;
+ $('userName').title=authUser?'El nombre de la cuenta no se puede cambiar desde esta partida.':'';
 }
 function setAuthFeedback(message,isError){
  const box=$('authFeedback');
@@ -356,11 +410,9 @@ function setAuthMode(mode){
  $('registerTab').classList.toggle('active',registering);
  $('loginTab').setAttribute('aria-selected',String(!registering));
  $('registerTab').setAttribute('aria-selected',String(registering));
- $('authNameWrap').hidden=!registering;
- $('authName').required=registering;
  $('authPassword').autocomplete=registering?'new-password':'current-password';
  $('authTitle').textContent=registering?'Crea tu cuenta':'Inicia sesión';
- $('authSubtitle').textContent=registering?'Regístrate gratis con tu correo, una contraseña y el nombre que aparecerá en las partidas.':'Ingresa a tu cuenta para continuar y jugar con otras personas.';
+ $('authSubtitle').textContent=registering?'Elige un nombre de usuario y una contraseña. No necesitas correo electrónico.':'Escribe el mismo nombre de usuario y contraseña que registraste.';
  $('authSubmit').textContent=registering?'Crear cuenta gratis':'Entrar al juego';
  setAuthFeedback('',false);
 }
