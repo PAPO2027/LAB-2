@@ -370,7 +370,7 @@ function applyAuthSession(session){
  $('accountBar').hidden=!authUser;
  if(authUser){
   $('accountEmail').textContent=authUser.email||'Cuenta activa';
-  const displayName=String(authUser.user_metadata?.display_name||'').replace(/\\s+/g,' ').trim().slice(0,18);
+  const displayName=String(authUser.user_metadata?.display_name||'').replace(/\s+/g,' ').trim().slice(0,18);
   if(displayName&&state.userName!==displayName){
    state.userName=displayName;
    updateNameControls();
@@ -400,7 +400,7 @@ async function submitAuthForm(event){
  if(!supabaseClient){await initializeAuth();if(!supabaseClient)return}
  const email=$('authEmail').value.trim().toLowerCase();
  const password=$('authPassword').value;
- const name=$('authName').value.replace(/\\s+/g,' ').trim().slice(0,18);
+ const name=$('authName').value.replace(/\s+/g,' ').trim().slice(0,18);
  if(authMode==='register'&&name.length<2){setAuthFeedback('Escribe un nombre de al menos 2 caracteres.',true);return}
  if(password.length<8){setAuthFeedback('La contraseña debe tener al menos 8 caracteres.',true);return}
  const button=$('authSubmit');
