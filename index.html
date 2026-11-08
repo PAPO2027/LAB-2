@@ -1438,15 +1438,16 @@ async function shareRoom(){
 }
 
 let animationLoopStarted=false;
+let animationLoopTimer=null;
 function ensureAnimationLoop(){
  if(animationLoopStarted)return;
  animationLoopStarted=true;
- requestAnimationFrame(loop);
+ state.lastTime=performance.now();
+ // La física no depende de requestAnimationFrame: un error en el pintado o una
+ // pausa del renderizado no puede dejar la mesa permanentemente "en movimiento".
+ animationLoopTimer=window.setInterval(()=>loop(performance.now()),16);
 }
 function loop(ts){
- // Programar el siguiente fotograma antes de ejecutar la física. Así, un error
- // aislado no cancela silenciosamente todas las animaciones siguientes.
- requestAnimationFrame(loop);
  try{
   const frameTime=Number.isFinite(ts)?ts:performance.now();
   if(!state.lastTime)state.lastTime=frameTime;
