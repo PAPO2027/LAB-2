@@ -435,16 +435,20 @@ function applyAccountProfile(username,profile,token){
  $('accountName').textContent=state.userName;
  $('accountBar').hidden=false;
  $('authGate').hidden=true;
- // Asegurar que los controles de la mesa vuelvan a estar activos tras el acceso.
+ // Reconstruir el estado de la mesa al terminar el acceso. Esto evita que el
+ // canvas quede vacío o que la partida conserve un estado de animación anterior.
  $('authUsername').blur();
  $('authPassword').blur();
  if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();
+ const selectedMode=$('gameMode').value;
+ if(['cpu','online','local','race','practice'].includes(selectedMode))state.mode=selectedMode;
  state.animating=false;state.aiming=true;state.drag=null;
- state.shotElapsed=0;state.stillFrames=0;state.lastTime=0;
- draw();
+ state.ballInHand=false;state.shotElapsed=0;state.stillFrames=0;state.lastTime=0;
+ state.balls.forEach(ball=>{ball.vx=0;ball.vy=0});
+ resetMatch(true);
  canvas.focus({preventScroll:true});
  if(state.mode==='online'&&!state.net.connected){
-  tell('Para jugar en línea, conecta primero una sala. También puedes elegir «8 bolas · contra CPU».','warn');
+  tell('Modo multijugador: conecta una sala para habilitar los tiros. Para jugar contra CPU, selecciona «8 bolas · contra CPU».','warn');
  }
 }
 function setAuthMode(mode){
