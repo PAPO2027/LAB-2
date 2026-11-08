@@ -442,6 +442,14 @@ function applyAccountProfile(username,profile,token){
  if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();
  const selectedMode=$('gameMode').value;
  if(['cpu','online','local','race','practice'].includes(selectedMode))state.mode=selectedMode;
+ // Una URL normal nunca debe dejar al jugador bloqueado en online sin sala.
+ // Los enlaces de invitación conservan online para que el jugador pueda conectarse.
+ const inviteCode=new URLSearchParams(window.location.search).get('sala');
+ if(state.mode==='online'&&!state.net.connected&&!inviteCode){
+  state.mode='cpu';
+  $('gameMode').value='cpu';
+  $('onlineControls').style.display='none';
+ }
  state.animating=false;state.aiming=true;state.drag=null;
  state.ballInHand=false;state.shotElapsed=0;state.stillFrames=0;state.lastTime=0;
  state.balls.forEach(ball=>{ball.vx=0;ball.vy=0});
@@ -647,7 +655,7 @@ function updateHud(skipCues){
  $('potStat').textContent=state.potted;$('matchStat').textContent=state.played;$('lossStat').textContent=state.losses;
  $('powerValue').textContent=Math.round(state.power*100)+'%';
  $('cueCount').textContent=state.owned.size+' / '+cues.length;
- $('turnHint').textContent=state.gameOver?'Partida terminada: puedes iniciar otra mesa.':state.animating?'Las bolas están en movimiento…':state.ballInHand&&canControlTurn()?'Falta: haz clic en la mesa para colocar la blanca.':state.mode!=='practice'&&state.mode!=='race'&&state.breakShot?'Saque inicial: mesa abierta.':state.turn===0?'Tu turno: apunta y prepara el tiro.':state.mode==='local'?'Turno del Jugador 2.':'Turno del rival.';
+ $('turnHint').textContent=state.mode==='online'&&!state.net.connected?'Conecta una sala para habilitar el apuntado y los tiros.':state.gameOver?'Partida terminada: puedes iniciar otra mesa.':state.animating?'Las bolas están en movimiento…':state.ballInHand&&canControlTurn()?'Falta: haz clic en la mesa para colocar la blanca.':state.mode!=='practice'&&state.mode!=='race'&&state.breakShot?'Saque inicial: mesa abierta.':state.turn===0?'Tu turno: apunta y prepara el tiro.':state.mode==='local'?'Turno del Jugador 2.':'Turno del rival.';
  $('shootBtn').disabled=state.animating||state.gameOver||state.ballInHand||!canControlTurn();
  if(!skipCues)renderCues();
 }
