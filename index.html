@@ -1029,8 +1029,14 @@ function shoot(){
  if(!canControlTurn()||state.animating||state.gameOver||state.ballInHand)return;
  const cue=state.balls.find(b=>b.n===0&&b.onTable);
  if(!cue){tell('No se ve la bola blanca. Reinicia la mesa.','warn');return}
+ state.angle=Number.isFinite(state.angle)?state.angle:0;
+ state.power=Math.max(.15,Math.min(1,Number.isFinite(state.power)?state.power:.62));
+ const c=currentCue();const cueStrength=Number.isFinite(c.power)?c.power:1;
+ const velocity=state.power*1030*cueStrength;
+ if(!Number.isFinite(velocity)||velocity<=0){tell('No se pudo calcular la fuerza del tiro. Ajusta la potencia e inténtalo otra vez.','warn');return}
+ ensureAnimationLoop();
+ state.lastTime=performance.now();
  state.animating=true;state.aiming=false;state.shotElapsed=0;state.shotPocketed=[];state.shotFoul=false;state.firstHit=null;state.stillFrames=0;state.shotCount++;state.shotRailHit=false;state.shotRailBalls=[];
- const c=currentCue();const velocity=state.power*1030*c.power;
  cue.vx=Math.cos(state.angle)*velocity;cue.vy=Math.sin(state.angle)*velocity;
  state.net.activeShooter=state.mode==='online'?state.net.role:state.turn;
  tell('¡Buen tiro!','good');updateHud();draw();broadcastGameState(true);
@@ -1431,35 +1437,52 @@ async function shareRoom(){
  catch(e){showToast('Comparte este código: '+state.net.room)}
 }
 
+let animationLoopStarted=false;
+function ensureAnimationLoop(){
+ if(animationLoopStarted)return;
+ animationLoopStarted=true;
+ requestAnimationFrame(loop);
+}
 function loop(ts){
- if(!state.lastTime)state.lastTime=ts;
- const dt=Math.min(.033,(ts-state.lastTime)/1000);state.lastTime=ts;
- if(state.animating){
-  if(state.mode!=='online'||state.net.role===state.net.activeShooter){
-   // Divide el tiempo de cada fotograma en pasos pequeños para mantener precisa la física.
-   state.shotElapsed+=dt;
-   const physicsSteps=Math.max(1,Math.ceil(dt/(1/240)));
-   const physicsStep=dt/physicsSteps;
-   for(let step=0;step<physicsSteps;step++)updatePhysics(physicsStep);
-   if(state.mode==='online')broadcastGameState(false);
-   if(!hasMotion()){
-    state.stillFrames++;
-    if(state.stillFrames>10){finishShot()}
-   }else{
-    state.stillFrames=0;
-    // Seguro contra bolas vibrando o colisiones que impidan terminar el tiro.
-    // Un tiro normal acaba mucho antes; a los 12 segundos asentamos las bolas.
-    if(state.shotElapsed>12){
-     state.balls.forEach(b=>{if(b.onTable){b.vx=0;b.vy=0}});
+ // Programar el siguiente fotograma antes de ejecutar la física. Así, un error
+ // aislado no cancela silenciosamente todas las animaciones siguientes.
+ requestAnimationFrame(loop);
+ try{
+  const frameTime=Number.isFinite(ts)?ts:performance.now();
+  if(!state.lastTime)state.lastTime=frameTime;
+  const dt=Math.max(0,Math.min(.033,(frameTime-state.lastTime)/1000));state.lastTime=frameTime;
+  if(state.animating){
+   if(state.mode!=='online'||state.net.role===state.net.activeShooter){
+    state.shotElapsed+=dt;
+    const physicsSteps=Math.max(1,Math.ceil(dt/(1/240)));
+    const physicsStep=dt/physicsSteps;
+    for(let step=0;step<physicsSteps;step++)updatePhysics(physicsStep);
+    if(state.mode==='online')broadcastGameState(false);
+    if(!hasMotion()){
+     state.stillFrames++;
+     if(state.stillFrames>10)finishShot();
+    }else{
      state.stillFrames=0;
-     finishShot();
+     if(state.shotElapsed>12){
+      state.balls.forEach(b=>{if(b.onTable){b.vx=0;b.vy=0}});
+      state.stillFrames=0;
+      finishShot();
+     }
     }
    }
   }
- }
- tickTurnClock();
- draw();
- requestAnimationFrame(loop);
+  tickTurnClock();
+  draw();
+ }catch(error){
+  console.error('MESA 8: error recuperable en el ciclo de animación.',error);
+  // Evitar que la mesa quede bloqueada en "Las bolas están en movimiento".
+  if(state.animating){
+   state.balls.forEach(b=>{b.vx=0;b.vy=0});
+   state.animating=false;state.aiming=true;state.shotElapsed=0;state.stillFrames=0;
+   tell('Se recuperó el control de la mesa después de un error. Puedes volver a tirar.','warn');
+  }
+  try{updateHud(true);draw()}catch(recoveryError){console.error('MESA 8: no se pudo redibujar la mesa.',recoveryError)}
+ } 
 }
 $('cueInfo').textContent=currentCue().name+': '+currentCue().desc;
 const inviteRoom=new URLSearchParams(window.location.search).get('sala');
@@ -1473,7 +1496,7 @@ if(!['green','blue','purple','red'].includes(state.skin))state.skin='red';
 document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b.dataset.skin===state.skin));
 resetMatch(true);
 updateHud();
-requestAnimationFrame(loop);
+ensureAnimationLoop();
 })();
 </script>
 </body>
