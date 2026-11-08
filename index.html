@@ -435,6 +435,17 @@ function applyAccountProfile(username,profile,token){
  $('accountName').textContent=state.userName;
  $('accountBar').hidden=false;
  $('authGate').hidden=true;
+ // Asegurar que los controles de la mesa vuelvan a estar activos tras el acceso.
+ $('authUsername').blur();
+ $('authPassword').blur();
+ if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();
+ state.animating=false;state.aiming=true;state.drag=null;
+ state.shotElapsed=0;state.stillFrames=0;state.lastTime=0;
+ draw();
+ canvas.focus({preventScroll:true});
+ if(state.mode==='online'&&!state.net.connected){
+  tell('Para jugar en línea, conecta primero una sala. También puedes elegir «8 bolas · contra CPU».','warn');
+ }
 }
 function setAuthMode(mode){
  authMode=mode==='register'?'register':'login';
@@ -971,15 +982,18 @@ $('roomCode').addEventListener('keydown',e=>{if(e.key==='Enter')connectToRoom()}
 window.addEventListener('keydown',e=>{
  const active=document.activeElement;
  const tag=active&&active.tagName;
+ const isTyping=!!active&&(
+  active.isContentEditable||
+  (tag==='INPUT'&&!active.readOnly&&active.type!=='range')||
+  tag==='SELECT'||tag==='TEXTAREA'
+ );
  if(e.key.toLowerCase()==='t'){
-  if(tag==='INPUT'&&active.type!=='range')return;
-  if(tag==='SELECT'||tag==='TEXTAREA')return;
+  if(isTyping)return;
   e.preventDefault();shoot();return;
  }
  // Mantener ↑ o ↓ cambia la potencia progresivamente gracias a la repetición del teclado.
  if(e.code==='ArrowUp'||e.code==='ArrowDown'){
-  if(tag==='INPUT'&&active.type!=='range')return;
-  if(tag==='SELECT'||tag==='TEXTAREA')return;
+  if(isTyping)return;
   e.preventDefault();
   const step=e.code==='ArrowUp'?1:-1;
   const percent=Math.max(15,Math.min(100,Math.round(state.power*100)+step));
@@ -988,12 +1002,18 @@ window.addEventListener('keydown',e=>{
   $('powerValue').textContent=percent+'%';
   draw();return;
  }
- if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA')return;
+ if(isTyping)return;
  if(e.code==='ArrowLeft'){e.preventDefault();state.angle-=.035;draw()}
  if(e.code==='ArrowRight'){e.preventDefault();state.angle+=.035;draw()}
  if(e.key.toLowerCase()==='r'){resetMatch(false)}
 });
 function shoot(){
+ if(state.mode==='online'&&!state.net.connected){
+  tell('Conecta primero una sala para poder tirar en modo multijugador.','warn');return;
+ }
+ if(state.mode==='online'&&state.net.role!==state.turn){
+  tell('Espera tu turno para realizar el tiro.','warn');return;
+ }
  if(!canControlTurn()||state.animating||state.gameOver||state.ballInHand)return;
  const cue=state.balls.find(b=>b.n===0&&b.onTable);
  if(!cue){tell('No se ve la bola blanca. Reinicia la mesa.','warn');return}
