@@ -438,10 +438,12 @@ function restoreGameSession(){
    return;
   }
   const validModes=['cpu','local','race','practice','online'];
-  state.mode=validModes.includes(saved.mode)?saved.mode:'cpu';
+  const inviteRoom=new URLSearchParams(window.location.search).get('sala');
+  state.mode=inviteRoom?'online':(validModes.includes(saved.mode)?saved.mode:'cpu');
   $('gameMode').value=state.mode;
   $('onlineControls').style.display=state.mode==='online'?'block':'none';
-  if(state.mode==='online'&&saved.room)$('roomCode').value=String(saved.room).slice(0,12);
+  if(inviteRoom)$('roomCode').value=inviteRoom.toUpperCase().replace(/[^A-Z0-9-]/g,'').slice(0,12);
+  else if(state.mode==='online'&&saved.room)$('roomCode').value=String(saved.room).slice(0,12);
   const g=saved.game;
   if(Array.isArray(g.balls)&&g.balls.length){
    state.balls=g.balls.filter(b=>b&&Number.isFinite(Number(b.x))&&Number.isFinite(Number(b.y))).map(b=>({
@@ -547,6 +549,7 @@ function setAuthMode(mode){
  setAuthFeedback('',false);
 }
 function applyAccountProfile(username,profile,token){
+ gameSessionReady=false;
  authToken=token||authToken;
  state.userName=String(username||'Jugador').replace(/\s+/g,' ').trim().slice(0,18);
  state.wins=Math.max(0,Number(profile.wins)||0);
