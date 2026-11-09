@@ -109,9 +109,15 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
 .account-pill[hidden]{display:none}
 .account-pill span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:155px}
 .account-pill button{border:1px solid #416357;background:#193532;color:#dff4e8;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:800}
-.auth-gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;padding:20px;background:rgba(3,12,11,.94);backdrop-filter:blur(12px)}
-.auth-gate[hidden]{display:none}
-.auth-card{width:min(100%,430px);padding:26px;border:1px solid #31584d;border-radius:22px;background:linear-gradient(155deg,#15312d,#0b1c1b);box-shadow:0 25px 80px #0009}
+.auth-gate{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;overflow-y:auto;padding:20px;background:rgba(3,12,11,.96);backdrop-filter:blur(12px);pointer-events:auto;isolation:isolate}
+.auth-gate[hidden]{display:none!important}
+.auth-card{position:relative;z-index:1;width:min(100%,430px);max-height:calc(100vh - 40px);overflow-y:auto;padding:26px;border:1px solid #31584d;border-radius:22px;background:linear-gradient(155deg,#15312d,#0b1c1b);box-shadow:0 25px 80px #0009;pointer-events:auto}
+.auth-input{position:relative;z-index:2;pointer-events:auto!important;user-select:text;-webkit-user-select:text;touch-action:manipulation;caret-color:var(--mint)}
+.auth-field{position:relative;z-index:2;pointer-events:auto}
+.auth-saved-hint{margin:12px 0 8px;padding:10px;border:1px solid #3a6155;border-radius:10px;background:#0b1b19;color:#c5e4d3;font-size:11px;line-height:1.5}
+.auth-saved-hint[hidden],.auth-continue[hidden]{display:none!important}
+.auth-continue{width:100%;margin:0 0 14px;border:1px solid #74d9ad;border-radius:10px;padding:11px;background:#173d30;color:#dfffee;font-size:12px;font-weight:850;cursor:pointer}
+.auth-continue:hover{filter:brightness(1.12)}
 .auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:19px}
 .auth-brand-mark{width:46px;height:46px;display:grid;place-items:center;border-radius:14px;background:linear-gradient(135deg,#7de4b8,#2b9c74);color:#09231b;font-size:25px;font-weight:1000}
 .auth-brand h2{margin:0;font-size:19px;letter-spacing:.08em}
@@ -143,7 +149,7 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
     <div class="top-right">
       <div class="pill record">🏆 Victorias <strong id="winsTop">0</strong></div>
       <div class="pill">🪙 <strong id="coinsTop">120</strong> monedas</div>
-      <div class="account-pill" id="accountBar" hidden><span id="accountName"></span><button type="button" id="signOutBtn">Salir</button></div>
+      <div class="account-pill" id="accountBar" hidden><span id="accountName"></span><button type="button" id="signOutBtn">Cambiar cuenta</button></div>
     </div>
   </header>
 
@@ -261,7 +267,9 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
       <button class="auth-tab active" id="loginTab" type="button" role="tab" aria-selected="true">Iniciar sesión</button>
       <button class="auth-tab" id="registerTab" type="button" role="tab" aria-selected="false">Crear cuenta</button>
     </div>
-    <form id="authForm">
+    <p class="auth-saved-hint" id="savedAccountHint" hidden></p>
+    <button class="auth-continue" id="continueSavedBtn" type="button" hidden>Continuar con la cuenta guardada</button>
+    <form id="authForm" autocomplete="on">
       <label class="auth-field">
         <span>Nombre de usuario</span>
         <input class="auth-input" id="authUsername" type="text" maxlength="18" minlength="3" autocomplete="username" required placeholder="Ej. Nicolas_08">
@@ -318,6 +326,8 @@ let authMode='login';
 let cloudProfileReady=false;
 let cloudSaveTimer=null;
 let profileSaveChain=Promise.resolve();
+let pendingSavedToken=null;
+let pendingSavedAccount=null;
 const $=id=>document.getElementById(id);
 function readSave(){try{return JSON.parse(localStorage.getItem('mesa8-save')||'{}')}catch(e){return {}}}
 function profilePayload(){
@@ -412,32 +422,61 @@ function applyAccountProfile(username,profile,token){
  if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();
  canvas.focus({preventScroll:true});
 }
+function focusAuthUsername(){
+ requestAnimationFrame(()=>{
+  if(!$('authGate').hidden){
+   $('authUsername').disabled=false;
+   $('authUsername').readOnly=false;
+   $('authPassword').disabled=false;
+   $('authPassword').readOnly=false;
+   $('authUsername').focus({preventScroll:true});
+  }
+ });
+}
 async function initializeAuth(){
+ // No entrar automáticamente: dejar siempre visible el formulario para que el
+ // jugador pueda iniciar sesión con otra cuenta o crear una cuenta nueva.
+ authToken=null;cloudProfileReady=false;
+ pendingSavedToken=null;pendingSavedAccount=null;
+ $('accountBar').hidden=true;
+ $('authGate').hidden=false;
+ $('continueSavedBtn').hidden=true;
+ $('savedAccountHint').hidden=true;
+ $('authUsername').disabled=false;$('authUsername').readOnly=false;
+ $('authPassword').disabled=false;$('authPassword').readOnly=false;
+ updateNameControls();
+ focusAuthUsername();
+
  let savedToken=null;
  try{savedToken=localStorage.getItem('mesa8-auth-token')}catch(e){}
- if(!savedToken){
-  authToken=null;cloudProfileReady=false;
-  $('accountBar').hidden=true;$('authGate').hidden=false;
-  updateNameControls();return;
- }
+ if(!savedToken)return;
+
  try{
   const data=await callAccountApi('get_profile',{},savedToken);
-  if(!data||!data.profile||!data.username)throw new Error('La cuenta devolvió datos incompletos.');
-  applyAccountProfile(data.username,data.profile,savedToken);
-  setAuthFeedback('',false);
+  if(!data||!data.profile||!data.username)throw new Error('La cuenta guardada devolvió datos incompletos.');
+  pendingSavedToken=savedToken;
+  pendingSavedAccount=data;
+  $('savedAccountHint').textContent='Hay una sesión guardada para '+data.username+'. Puedes continuar con ella o escribir otra cuenta arriba.';
+  $('savedAccountHint').hidden=false;
+  $('continueSavedBtn').textContent='Continuar como '+data.username;
+  $('continueSavedBtn').hidden=false;
+  setAuthFeedback('También puedes iniciar sesión con otra cuenta o crear una nueva.',false);
  }catch(error){
   if(error.status===401){
    try{localStorage.removeItem('mesa8-auth-token')}catch(e){}
-   authToken=null;cloudProfileReady=false;
-   $('accountBar').hidden=true;$('authGate').hidden=false;
-   setAuthFeedback('Tu sesión venció. Inicia sesión con tu nombre y contraseña.',false);
+   setAuthFeedback('La sesión guardada venció. Escribe tu usuario y contraseña para entrar.',false);
   }else{
-   authToken=savedToken;cloudProfileReady=false;
-   $('accountBar').hidden=true;$('authGate').hidden=false;
-   setAuthFeedback('No se pudo conectar con el servidor de cuentas. '+(error.message||''),true);
+   setAuthFeedback('No se pudo verificar la sesión guardada. Puedes iniciar sesión o crear una cuenta normalmente.',true);
   }
-  updateNameControls();
  }
+ focusAuthUsername();
+}
+function continueSavedSession(){
+ if(!pendingSavedToken||!pendingSavedAccount)return;
+ const token=pendingSavedToken;
+ const account=pendingSavedAccount;
+ pendingSavedToken=null;pendingSavedAccount=null;
+ applyAccountProfile(account.username,account.profile,token);
 }
 async function submitAuthForm(event){
  event.preventDefault();
@@ -452,6 +491,7 @@ async function submitAuthForm(event){
   const data=await callAccountApi(action,{username,password},null);
   if(!data.token||!data.profile||!data.username)throw new Error('El servidor devolvió una cuenta incompleta.');
   $('authPassword').value='';
+  pendingSavedToken=null;pendingSavedAccount=null;
   applyAccountProfile(data.username,data.profile,data.token);
   setAuthFeedback(authMode==='register'?'¡Cuenta creada! Tu progreso se guardará con este nombre.':'Sesión iniciada. Tu progreso se ha recuperado.',false);
  }catch(error){
@@ -471,7 +511,10 @@ async function signOutAccount(){
   authToken=null;cloudProfileReady=false;
   $('accountBar').hidden=true;$('authGate').hidden=false;
   $('authPassword').value='';$('authUsername').value='';
+  pendingSavedToken=null;pendingSavedAccount=null;
+  $('continueSavedBtn').hidden=true;$('savedAccountHint').hidden=true;
   setAuthMode('login');updateNameControls();button.disabled=false;
+  $('authGate').hidden=false;focusAuthUsername();
  }
 }
 
@@ -918,6 +961,7 @@ $('loginTab').addEventListener('click',()=>setAuthMode('login'));
 $('registerTab').addEventListener('click',()=>setAuthMode('register'));
 $('authForm').addEventListener('submit',submitAuthForm);
 $('signOutBtn').addEventListener('click',signOutAccount);
+$('continueSavedBtn').addEventListener('click',continueSavedSession);
 window.addEventListener('keydown',e=>{
  const active=document.activeElement;
  const tag=active&&active.tagName;
