@@ -1116,6 +1116,8 @@ $('registerTab').addEventListener('click',()=>setAuthMode('register'));
 $('authForm').addEventListener('submit',submitAuthForm);
 $('signOutBtn').addEventListener('click',signOutAccount);
 $('continueSavedBtn').addEventListener('click',continueSavedSession);
+window.addEventListener('pagehide',()=>saveGameSession(true));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')saveGameSession(true)});
 window.addEventListener('keydown',e=>{
  const active=document.activeElement;
  const tag=active&&active.tagName;
