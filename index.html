@@ -402,6 +402,83 @@ let quickChatHistory=[];
 let quickChatBubbleTimer=null;
 const $=id=>document.getElementById(id);
 function readSave(){try{return JSON.parse(localStorage.getItem('mesa8-save')||'{}')}catch(e){return {}}}
+let gameSessionReady=false;
+let lastGameSessionSave=0;
+let restoringGameSession=false;
+function saveGameSession(force){
+ if(!gameSessionReady||restoringGameSession)return;
+ const now=Date.now();
+ if(!force&&now-lastGameSessionSave<600)return;
+ lastGameSessionSave=now;
+ const snapshot={
+  version:1,username:state.userName||'',mode:state.mode,
+  room:state.mode==='online'?String($('roomCode').value||state.net.room||'').trim().toUpperCase():'',
+  savedAt:now,
+  game:{
+   balls:state.balls.map(b=>({n:b.n,x:b.x,y:b.y,vx:b.vx,vy:b.vy,rot:b.rot,onTable:b.onTable})),
+   angle:state.angle,power:state.power,turn:state.turn,scores:state.scores.slice(),groups:state.groups.slice(),
+   aiming:state.aiming,animating:state.animating,gameOver:state.gameOver,winner:state.winner,
+   winnerText:state.winnerText||'',shotPocketed:state.shotPocketed.slice(),shotFoul:state.shotFoul,
+   firstHit:state.firstHit,breakShot:state.breakShot,ballInHand:state.ballInHand,
+   shotRailHit:state.shotRailHit,shotRailBalls:state.shotRailBalls.slice(),
+   turnStartedAt:state.turnStartedAt,turnTimerTurn:state.turnTimerTurn,
+   shotCount:state.shotCount,skin:state.skin
+  }
+ };
+ try{localStorage.setItem('mesa8-game-session',JSON.stringify(snapshot))}catch(e){}
+}
+function restoreGameSession(){
+ let saved=null;
+ try{saved=JSON.parse(localStorage.getItem('mesa8-game-session')||'null')}catch(e){}
+ restoringGameSession=true;
+ try{
+  if(!saved||saved.version!==1||saved.username!==state.userName||!saved.game){
+   gameSessionReady=true;
+   saveGameSession(true);
+   return;
+  }
+  const validModes=['cpu','local','race','practice','online'];
+  state.mode=validModes.includes(saved.mode)?saved.mode:'cpu';
+  $('gameMode').value=state.mode;
+  $('onlineControls').style.display=state.mode==='online'?'block':'none';
+  if(state.mode==='online'&&saved.room)$('roomCode').value=String(saved.room).slice(0,12);
+  const g=saved.game;
+  if(Array.isArray(g.balls)&&g.balls.length){
+   state.balls=g.balls.filter(b=>b&&Number.isFinite(Number(b.x))&&Number.isFinite(Number(b.y))).map(b=>({
+    n:Number(b.n),x:Number(b.x),y:Number(b.y),vx:Number(b.vx)||0,vy:Number(b.vy)||0,
+    rot:Number(b.rot)||0,onTable:!!b.onTable
+   }));
+  }
+  state.angle=Number(g.angle)||0;
+  state.power=Math.max(.15,Math.min(1,Number(g.power)||.62));
+  state.turn=g.turn===1?1:0;
+  state.scores=Array.isArray(g.scores)?g.scores.slice(0,2).map(v=>Math.max(0,Number(v)||0)):[0,0];
+  state.groups=Array.isArray(g.groups)?g.groups.slice(0,2):[null,null];
+  state.aiming=!!g.aiming;state.animating=!!g.animating;state.gameOver=!!g.gameOver;
+  state.winner=g.winner===null||g.winner===undefined?null:Number(g.winner);
+  state.winnerText=String(g.winnerText||'');
+  state.shotPocketed=Array.isArray(g.shotPocketed)?g.shotPocketed.slice():[];
+  state.shotFoul=!!g.shotFoul;state.firstHit=g.firstHit===null||g.firstHit===undefined?null:Number(g.firstHit);
+  state.breakShot=g.breakShot!==false;state.ballInHand=!!g.ballInHand;
+  state.shotRailHit=!!g.shotRailHit;state.shotRailBalls=Array.isArray(g.shotRailBalls)?g.shotRailBalls.slice():[];
+  state.turnStartedAt=Number(g.turnStartedAt)||Date.now();state.turnTimerTurn=Number.isInteger(g.turnTimerTurn)?g.turnTimerTurn:state.turn;
+  state.shotCount=Math.max(0,Number(g.shotCount)||0);
+  if(['green','blue','purple','red'].includes(g.skin))state.skin=g.skin;
+  state.lastTime=0;state.stillFrames=0;state.shotElapsed=0;state.drag=null;
+  $('power').value=String(Math.round(state.power*100));
+  $('powerValue').textContent=Math.round(state.power*100)+'%';
+  updateNameControls();
+  $('modeNote').textContent=state.mode==='online'?'Conecta dos dispositivos usando el mismo código de sala.':state.mode==='local'?'Dos personas juegan por turnos en el mismo dispositivo.':state.mode==='practice'?'Sin rival ni puntuación competitiva: prueba ángulos y tacos.':state.mode==='race'?'Gana quien emboca primero 5 bolas.':'Emboca tu grupo y termina con la bola 8.';
+  $('accuracyLabel').textContent=state.mode==='practice'?'MODO LIBRE':'TACO ACTUAL';
+  document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b.dataset.skin===state.skin));
+  updateHud();draw();
+ }finally{
+  restoringGameSession=false;
+  gameSessionReady=true;
+ }
+ if(state.mode==='online'&&String($('roomCode').value||'').trim())connectToRoom();
+ else saveGameSession(true);
+}
 function profilePayload(){
  return {wins:state.wins,losses:state.losses,coins:state.coins,played:state.played,potted:state.potted,owned:Array.from(state.owned),cue_id:state.cueId,skin:state.skin};
 }
@@ -416,6 +493,7 @@ async function callAccountApi(action,payload={},token){
 }
 function save(){
  try{localStorage.setItem('mesa8-save',JSON.stringify({coins:state.coins,wins:state.wins,losses:state.losses,played:state.played,potted:state.potted,owned:Array.from(state.owned),cueId:state.cueId,skin:state.skin,userName:state.userName,localPlayer2Name:state.localPlayer2Name}))}catch(e){}
+ saveGameSession(true);
  if(!authToken||!cloudProfileReady)return;
  clearTimeout(cloudSaveTimer);
  const token=authToken;
@@ -489,6 +567,7 @@ function applyAccountProfile(username,profile,token){
  $('accountBar').hidden=false;
  $('authGate').hidden=true;
  updateHud();
+ restoreGameSession();
  // No resetMatch(), no animation replacement and no modification of the current balls.
  $('authUsername').blur();$('authPassword').blur();
  if(document.activeElement&&typeof document.activeElement.blur==='function')document.activeElement.blur();
@@ -506,42 +585,30 @@ function focusAuthUsername(){
  });
 }
 async function initializeAuth(){
- // No entrar automáticamente: dejar siempre visible el formulario para que el
- // jugador pueda iniciar sesión con otra cuenta o crear una cuenta nueva.
+ // Recuperar automáticamente la sesión si el token guardado sigue siendo válido.
  authToken=null;cloudProfileReady=false;
  pendingSavedToken=null;pendingSavedAccount=null;
  $('accountBar').hidden=true;
  $('authGate').hidden=false;
  $('continueSavedBtn').hidden=true;
  $('savedAccountHint').hidden=true;
- $('authUsername').disabled=false;$('authUsername').readOnly=false;
- $('authPassword').disabled=false;$('authPassword').readOnly=false;
  updateNameControls();
- focusAuthUsername();
-
  let savedToken=null;
  try{savedToken=localStorage.getItem('mesa8-auth-token')}catch(e){}
- if(!savedToken)return;
-
+ if(!savedToken){focusAuthUsername();return}
  try{
   const data=await callAccountApi('get_profile',{},savedToken);
   if(!data||!data.profile||!data.username)throw new Error('La cuenta guardada devolvió datos incompletos.');
-  pendingSavedToken=savedToken;
-  pendingSavedAccount=data;
-  $('savedAccountHint').textContent='Hay una sesión guardada para '+data.username+'. Puedes continuar con ella o escribir otra cuenta arriba.';
-  $('savedAccountHint').hidden=false;
-  $('continueSavedBtn').textContent='Continuar como '+data.username;
-  $('continueSavedBtn').hidden=false;
-  setAuthFeedback('También puedes iniciar sesión con otra cuenta o crear una nueva.',false);
+  applyAccountProfile(data.username,data.profile,savedToken);
  }catch(error){
   if(error.status===401){
    try{localStorage.removeItem('mesa8-auth-token')}catch(e){}
-   setAuthFeedback('La sesión guardada venció. Escribe tu usuario y contraseña para entrar.',false);
+   setAuthFeedback('La sesión venció. Escribe tu usuario y contraseña para entrar.',false);
   }else{
-   setAuthFeedback('No se pudo verificar la sesión guardada. Puedes iniciar sesión o crear una cuenta normalmente.',true);
+   setAuthFeedback('No se pudo verificar la sesión guardada. Comprueba tu conexión o inicia sesión.',true);
   }
+  focusAuthUsername();
  }
- focusAuthUsername();
 }
 function continueSavedSession(){
  if(!pendingSavedToken||!pendingSavedAccount)return;
@@ -635,7 +702,7 @@ function resetMatch(keepMatchCount){
  state.breakShot=true;state.ballInHand=false;state.shotRailHit=false;state.shotRailBalls=[];
  if(!keepMatchCount){state.played++;save()}
  updateHud();tell(state.mode==='practice'?'Práctica libre: juega sin presión y prueba tus tacos.':state.mode==='online'?'Mesa online lista. Espera a que se conecte el otro jugador.':'¡Mesa lista! Apunta a la bola blanca y tira cuando estés preparado.','good');
- canvas.focus({preventScroll:true});draw();broadcastGameState(true);
+ canvas.focus({preventScroll:true});draw();broadcastGameState(true);saveGameSession(true);
 }
 function remainingFor(player){
  const g=state.groups[player];
@@ -1018,6 +1085,7 @@ $('gameMode').addEventListener('change',e=>{
  updateNameControls();
  $('modeNote').textContent=notes[state.mode]||notes.cpu;$('accuracyLabel').textContent=state.mode==='practice'?'MODO LIBRE':'TACO ACTUAL';
  resetMatch(true);
+ saveGameSession(true);
 });
 document.querySelectorAll('.skin-btn').forEach(btn=>btn.addEventListener('click',()=>{
  state.skin=btn.dataset.skin;document.querySelectorAll('.skin-btn').forEach(b=>b.classList.toggle('active',b===btn));save();draw();broadcastGameState(true);
@@ -1561,6 +1629,7 @@ function loop(ts){
   }
  }
  tickTurnClock();
+ saveGameSession(false);
  draw();
  requestAnimationFrame(loop);
 }
