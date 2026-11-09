@@ -45,6 +45,29 @@ button{cursor:pointer}
 canvas{display:block;width:100%;height:auto;aspect-ratio:25/14;touch-action:none;outline:none}
 .table-caption{position:absolute;left:18px;top:17px;z-index:2;background:#061712bd;border:1px solid #ffffff20;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:800;letter-spacing:.13em;color:#d5f3e5;pointer-events:none}
 .table-caption span{color:var(--gold)}
+/* Chat rápido multijugador */
+.quick-chat[hidden],.quick-chat-panel[hidden],.chat-bubble[hidden]{display:none!important}
+.quick-chat{position:absolute;right:14px;bottom:14px;z-index:7;display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.quick-chat-trigger{display:flex;align-items:center;gap:8px;border:1px solid #a7f8d1;border-radius:999px;padding:10px 15px;background:linear-gradient(135deg,#88ebbd,#4cc993);color:#06281b;font-size:12px;font-weight:950;box-shadow:0 7px 20px #0007}
+.quick-chat-trigger span{font-size:18px;line-height:1}
+.quick-chat-panel{width:min(292px,calc(100vw - 76px));max-height:min(70vh,390px);overflow:auto;padding:13px;border:1px solid #528b72;border-radius:15px;background:linear-gradient(155deg,#15312d,#091a18);box-shadow:0 16px 44px #000a;color:var(--text)}
+.quick-chat-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:11px}
+.quick-chat-head strong{font-size:12px;letter-spacing:.08em}
+.quick-chat-close{border:1px solid #416357;border-radius:8px;background:#193532;color:#eaf6ef;width:28px;height:28px;font-size:17px;line-height:1}
+.quick-chat-label{margin:10px 0 7px;color:#9fbdae;font-size:9px;font-weight:900;letter-spacing:.1em}
+.quick-chat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.quick-chat-grid button{min-height:36px;border:1px solid #35594d;border-radius:9px;padding:7px 8px;background:#102923;color:#e8f7ed;text-align:left;font-size:11px;font-weight:750}
+.quick-chat-grid button:hover,.quick-chat-emoji button:hover{border-color:var(--mint);background:#1b4033}
+.quick-chat-emoji{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.quick-chat-emoji button{height:37px;border:1px solid #35594d;border-radius:9px;background:#102923;color:#fff;font-size:19px}
+.quick-chat-history{margin-top:11px;padding-top:9px;border-top:1px solid #29483e}
+.quick-chat-history>small{display:block;margin-bottom:6px;color:#9fbdae;font-size:9px;font-weight:900;letter-spacing:.1em}
+.quick-chat-history-list{display:flex;flex-direction:column;gap:5px}
+.quick-chat-history-row{display:flex;gap:6px;align-items:flex-start;font-size:10px;line-height:1.35;color:#c4ded0;overflow-wrap:anywhere}
+.quick-chat-history-row strong{color:#f0d18f;white-space:nowrap}
+.chat-bubble{position:absolute;z-index:6;top:49px;left:50%;max-width:min(84%,460px);padding:11px 16px;border:1px solid #a7f8d1;border-radius:13px;background:rgba(7,28,21,.94);color:#f0fff6;text-align:center;font-size:13px;font-weight:900;line-height:1.35;box-shadow:0 9px 28px #0009;pointer-events:none;opacity:0;transform:translate(-50%,-8px);transition:opacity .18s,transform .18s}
+.chat-bubble.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:520px){.quick-chat{right:8px;bottom:8px}.quick-chat-trigger{padding:8px 12px;font-size:10px}.quick-chat-panel{width:min(270px,calc(100vw - 52px));padding:10px}.chat-bubble{top:42px;padding:8px 11px;font-size:11px}}
 .table-tip{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;margin:12px 2px 0}
 .table-tip .dot{width:7px;height:7px;border-radius:50%;background:var(--mint);box-shadow:0 0 10px #69e0b2}
 .control-strip{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;background:#0e2220;border:1px solid var(--line);border-radius:16px;padding:13px 15px;margin-top:14px}.side-power-body{display:flex;align-items:center;gap:13px}.power-vertical{writing-mode:vertical-lr;direction:rtl;width:24px;height:142px;accent-color:var(--mint);cursor:pointer;flex:none;appearance:slider-vertical;-webkit-appearance:slider-vertical}.power-scale{height:142px;display:flex;flex-direction:column;justify-content:space-between;color:#829f91;font-size:10px}.power-readout{font-size:24px;font-weight:900;color:var(--gold);font-variant-numeric:tabular-nums}.power-note{font-size:10px;line-height:1.55;color:var(--muted);margin-top:7px}.shot-status{font-size:12px;line-height:1.6;color:#bfd8ca}.shot-status strong{color:var(--gold)}
@@ -172,6 +195,37 @@ kbd{background:#1f3933;border:1px solid #3b5e50;border-radius:4px;padding:2px 5p
       <div class="table-frame">
         <div class="table-caption">MESA CLÁSICA <span>•</span> 8 BALL</div>
         <div class="table-inner"><canvas id="table" width="1000" height="560" aria-label="Mesa de billar interactiva" tabindex="0"></canvas></div>
+        <div class="chat-bubble" id="chatBubble" hidden aria-live="polite"></div>
+        <div class="quick-chat" id="quickChat" hidden>
+          <div class="quick-chat-panel" id="quickChatPanel" hidden>
+            <div class="quick-chat-head"><strong>CHAT RÁPIDO</strong><button type="button" class="quick-chat-close" id="quickChatClose" aria-label="Cerrar chat">×</button></div>
+            <div class="quick-chat-label">MENSAJES</div>
+            <div class="quick-chat-grid">
+              <button type="button" data-chat-id="well_played">👏 ¡Bien jugado!</button>
+              <button type="button" data-chat-id="good_luck">🍀 ¡Buena suerte!</button>
+              <button type="button" data-chat-id="nice_shot">🎯 ¡Qué tiro!</button>
+              <button type="button" data-chat-id="good_try">💪 ¡Buen intento!</button>
+              <button type="button" data-chat-id="thanks">🙏 ¡Gracias!</button>
+              <button type="button" data-chat-id="lets_go">🔥 ¡Vamos!</button>
+            </div>
+            <div class="quick-chat-label">EMOJIS</div>
+            <div class="quick-chat-emoji">
+              <button type="button" data-chat-id="cool" aria-label="Genial">😎</button>
+              <button type="button" data-chat-id="laugh" aria-label="Risa">😂</button>
+              <button type="button" data-chat-id="clap" aria-label="Aplausos">👏</button>
+              <button type="button" data-chat-id="fire" aria-label="Fuego">🔥</button>
+              <button type="button" data-chat-id="pool" aria-label="Billar">🎱</button>
+              <button type="button" data-chat-id="nervous" aria-label="Nervios">😅</button>
+              <button type="button" data-chat-id="muscle" aria-label="Fuerza">💪</button>
+              <button type="button" data-chat-id="heart" aria-label="Corazón">❤️</button>
+            </div>
+            <div class="quick-chat-history">
+              <small>MENSAJES RECIENTES</small>
+              <div class="quick-chat-history-list" id="quickChatHistory"></div>
+            </div>
+          </div>
+          <button type="button" class="quick-chat-trigger" id="quickChatToggle" aria-expanded="false"><span>💬</span> CHAT</button>
+        </div>
       </div>
       <div class="table-tip"><span class="dot"></span><span id="turnHint">Tu turno: apunta y prepara el tiro.</span><span style="margin-left:auto">Atajos: <kbd>←</kbd> <kbd>→</kbd> apuntar · <kbd>T</kbd> tirar · <kbd>R</kbd> reiniciar</span></div>
 
@@ -328,6 +382,24 @@ let cloudSaveTimer=null;
 let profileSaveChain=Promise.resolve();
 let pendingSavedToken=null;
 let pendingSavedAccount=null;
+const QUICK_CHAT_ITEMS=[
+ {id:'well_played',emoji:'👏',text:'¡Bien jugado!'},
+ {id:'good_luck',emoji:'🍀',text:'¡Buena suerte!'},
+ {id:'nice_shot',emoji:'🎯',text:'¡Qué tiro!'},
+ {id:'good_try',emoji:'💪',text:'¡Buen intento!'},
+ {id:'thanks',emoji:'🙏',text:'¡Gracias!'},
+ {id:'lets_go',emoji:'🔥',text:'¡Vamos!'},
+ {id:'cool',emoji:'😎',text:''},
+ {id:'laugh',emoji:'😂',text:''},
+ {id:'clap',emoji:'👏',text:''},
+ {id:'fire',emoji:'🔥',text:''},
+ {id:'pool',emoji:'🎱',text:''},
+ {id:'nervous',emoji:'😅',text:''},
+ {id:'muscle',emoji:'💪',text:''},
+ {id:'heart',emoji:'❤️',text:''}
+];
+let quickChatHistory=[];
+let quickChatBubbleTimer=null;
 const $=id=>document.getElementById(id);
 function readSave(){try{return JSON.parse(localStorage.getItem('mesa8-save')||'{}')}catch(e){return {}}}
 function profilePayload(){
@@ -954,6 +1026,17 @@ $('helpBtn').addEventListener('click',()=>{
  showToast('Guía precisa: blanca a objetivo y línea cian para la dirección prevista de la bola objetivo. No muestra choques con otras bolas. Ajusta potencia y pulsa T para tirar.');
  tell('1) Haz clic en la mesa para fijar la dirección. 2) La línea cian muestra la dirección prevista de la bola objetivo hacia la buchaca o banda, sin dibujar choques con otras bolas. 3) Ajusta la potencia y pulsa T o el botón TIRAR.','good');
 });
+$('quickChatToggle').addEventListener('click',()=>{
+ const panel=$('quickChatPanel');panel.hidden=!panel.hidden;
+ $('quickChatToggle').setAttribute('aria-expanded',String(!panel.hidden));
+});
+$('quickChatClose').addEventListener('click',()=>{
+ $('quickChatPanel').hidden=true;$('quickChatToggle').setAttribute('aria-expanded','false');
+});
+$('quickChatPanel').addEventListener('click',e=>{
+ const button=e.target.closest('[data-chat-id]');
+ if(button)sendQuickChat(button.dataset.chatId);
+});
 $('joinRoomBtn').addEventListener('click',()=>connectToRoom());
 $('copyRoomBtn').addEventListener('click',()=>shareRoom());
 $('roomCode').addEventListener('keydown',e=>{if(e.key==='Enter')connectToRoom()});
@@ -1230,6 +1313,64 @@ function readPresence(channel){
  const unique=new Map();all.forEach(p=>unique.set(p.playerId,p));
  return Array.from(unique.values()).sort((a,b)=>(Number(a.role)-Number(b.role))||(Number(a.joinedAt)-Number(b.joinedAt)));
 }
+function updateQuickChatAvailability(){
+ const root=$('quickChat');
+ if(!root)return;
+ const available=state.mode==='online'&&state.net.connected&&state.net.role>=0&&state.net.role<=1;
+ root.hidden=!available;
+ if(!available){
+  $('quickChatPanel').hidden=true;
+  $('quickChatToggle').setAttribute('aria-expanded','false');
+ }
+}
+function renderQuickChatHistory(){
+ const host=$('quickChatHistory');if(!host)return;
+ host.replaceChildren();
+ if(!quickChatHistory.length){
+  const empty=document.createElement('div');empty.className='quick-chat-history-row';empty.textContent='Aún no hay mensajes.';host.appendChild(empty);return;
+ }
+ quickChatHistory.slice(0,5).forEach(entry=>{
+  const row=document.createElement('div');row.className='quick-chat-history-row';
+  const name=document.createElement('strong');name.textContent=entry.senderName+':';
+  const body=document.createElement('span');body.textContent=entry.body;
+  row.append(name,body);host.appendChild(row);
+ });
+}
+function resetQuickChat(){
+ quickChatHistory=[];
+ renderQuickChatHistory();
+ clearTimeout(quickChatBubbleTimer);
+ const bubble=$('chatBubble');
+ if(bubble){bubble.hidden=true;bubble.classList.remove('show');bubble.textContent=''}
+}
+function showQuickChatMessage(payload){
+ if(!payload||payload.room!==state.net.room)return;
+ const item=QUICK_CHAT_ITEMS.find(entry=>entry.id===payload.chatId);
+ if(!item)return;
+ const senderId=String(payload.playerId||'').slice(0,100);
+ const senderName=senderId===state.net.playerId?'Tú':(String(payload.playerName||'Rival').replace(/[<>]/g,'').trim().slice(0,18)||'Rival');
+ const body=item.text?item.emoji+' '+item.text:item.emoji;
+ quickChatHistory.unshift({senderName,body});
+ if(quickChatHistory.length>5)quickChatHistory.length=5;
+ renderQuickChatHistory();
+ const bubble=$('chatBubble');
+ bubble.textContent=senderName+': '+body;
+ bubble.hidden=false;
+ bubble.classList.remove('show');
+ void bubble.offsetWidth;
+ bubble.classList.add('show');
+ clearTimeout(quickChatBubbleTimer);
+ quickChatBubbleTimer=setTimeout(()=>{bubble.classList.remove('show');bubble.hidden=true},3600);
+}
+function sendQuickChat(chatId){
+ const item=QUICK_CHAT_ITEMS.find(entry=>entry.id===chatId);
+ if(!item||state.mode!=='online'||!state.net.connected||state.net.role<0||state.net.role>1)return;
+ const payload={room:state.net.room,chatId:item.id,playerId:state.net.playerId,playerName:getUserName()||'Jugador '+(state.net.role+1),sentAt:Date.now()};
+ showQuickChatMessage(payload);
+ sendRoomEvent('quick_chat',payload);
+ $('quickChatPanel').hidden=true;
+ $('quickChatToggle').setAttribute('aria-expanded','false');
+}
 function sendRoomEvent(event,payload){
  if(!state.net.channel||!state.net.connected)return;
  try{const result=state.net.channel.send({type:'broadcast',event:event,payload:payload});if(result&&typeof result.catch==='function')result.catch(()=>{})}catch(e){}
@@ -1304,6 +1445,7 @@ function refreshPresence(){
  state.net.players=players.map((p,index)=>({...p,role:index<2?index:-1,name:index<2?(String(p.name||'').trim().slice(0,18)||'Jugador '+(index+1)):'Espectador'}));
  const me=state.net.players.find(p=>p.playerId===state.net.playerId);
  if(me)state.net.role=Number(me.role);
+ updateQuickChatAvailability();
  if(state.net.role<0||state.net.role>1){
   setNetStatus('Sala llena: ya hay 2 jugadores','error');
  }else{
@@ -1339,6 +1481,7 @@ function refreshPresence(){
 async function leaveRoom(){
  const ch=state.net.channel;state.net.channel=null;state.net.connected=false;state.net.role=-1;state.net.players=[];state.net.room='';state.net.joinedAt=0;state.net.activeShooter=0;state.net.roomInitialized=false;state.net.requestedState=false;state.net.lastSent=0;state.net.lastPersisted=0;state.net.persistError=false;
  $('joinRoomBtn').textContent='Conectar';$('copyRoomBtn').disabled=true;setNetStatus('Sin conexión','');
+ updateQuickChatAvailability();resetQuickChat();
  if(ch&&supabaseClient){try{await supabaseClient.removeChannel(ch)}catch(e){}}
  updateHud(true);
 }
@@ -1352,6 +1495,7 @@ async function connectToRoom(){
   setNetStatus('No se pudo cargar Supabase. Revisa tu conexión.','error');return;
  }
  $('joinRoomBtn').disabled=true;setNetStatus('Conectando a la sala…','');
+ updateQuickChatAvailability();resetQuickChat();
  pruneExpiredSnapshots();
  try{
   if(!supabaseClient)supabaseClient=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{realtime:{params:{eventsPerSecond:25}}});
@@ -1360,6 +1504,7 @@ async function connectToRoom(){
   state.net.channel=channel;
   channel.on('broadcast',{event:'game_state'},message=>applyRemoteGameState(message.payload));
   channel.on('broadcast',{event:'request_state'},message=>{if(message.payload&&message.payload.room===state.net.room&&state.net.role===0)broadcastGameState(true)});
+  channel.on('broadcast',{event:'quick_chat'},message=>showQuickChatMessage(message.payload));
   channel.on('presence',{event:'sync'},()=>refreshPresence());
   channel.subscribe(async status=>{
    if(status==='SUBSCRIBED'){
@@ -1425,6 +1570,8 @@ if(inviteRoom){state.mode='online';$('roomCode').value=inviteRoom.toUpperCase().
 $('gameMode').value=state.mode;
 $('onlineControls').style.display=state.mode==='online'?'block':'none';
 updateNameControls();
+updateQuickChatAvailability();
+renderQuickChatHistory();
 setAuthMode('login');
 initializeAuth();
 if(!['green','blue','purple','red'].includes(state.skin))state.skin='red';
